@@ -4,7 +4,7 @@
  * Wraps the application in QueryClientProvider to enable @tanstack/react-query.
  * Defines all application routes using React Router v6.
  */
-import React, { Suspense, lazy, useEffect } from "react";
+import React, { Suspense, lazy, useEffect, ComponentType } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -21,10 +21,14 @@ import FullPageLoader from "@/components/common/FullPageLoader";
  * Import global styles.
  */
 import "@/index.css";
+// Helper for lazy loading named exports
+const lazyNamed = <T extends ComponentType<any>>(importer: () => Promise<{ [key: string]: T }>, name: string) => {
+  return lazy(() => importer().then(module => ({ default: module[name] })));
+};
 // Lazy load pages that are not critical for the initial render
 const QuotesListPage = lazy(() => import('@/pages/QuotesListPage'));
 const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'));
-const AdminPage = lazy(() => import('@/pages/AdminPage'));
+const AdminPage = lazyNamed(() => import('@/pages/AdminPage'), 'AdminPage');
 const AdminOrdersPage = lazy(() => import('@/pages/AdminOrdersPage'));
 const AdminMaterialsPage = lazy(() => import('@/pages/AdminMaterialsPage'));
 const AdminPricingPage = lazy(() => import('@/pages/AdminPricingPage'));

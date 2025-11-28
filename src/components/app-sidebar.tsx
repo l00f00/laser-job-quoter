@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Home, Layers, List, Settings, LifeBuoy, Database, DollarSign, Key, BookOpen, Headphones, ShieldCheck } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Home, Layers, List, Settings, LifeBuoy, Database, DollarSign, Key, BookOpen, Headphones, ShieldCheck, LogOut } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -15,8 +15,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { mockAuth } from "@/lib/auth-utils";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 export function AppSidebar(): JSX.Element {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
   const [role, setRole] = useState(mockAuth.getRole());
   const [isDevMode, setIsDevMode] = useState(false);
@@ -39,6 +41,11 @@ export function AppSidebar(): JSX.Element {
     const nextPass = currentRole === 'admin' ? 'demo123' : 'admin123';
     await mockAuth.login(nextEmail, nextPass);
     window.location.reload();
+  };
+  const handleLogout = () => {
+    mockAuth.logout();
+    toast.info("You have been logged out.");
+    navigate('/');
   };
   return (
     <Sidebar>
@@ -111,6 +118,11 @@ export function AppSidebar(): JSX.Element {
         {isDevMode && (
           <Button variant="ghost" size="sm" onClick={handleRoleSwitch} className="w-full text-xs mb-2">
             {role === 'admin' ? 'Switch to User' : 'Switch to Admin'}
+          </Button>
+        )}
+        {mockAuth.isAuthenticated() && (
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="w-full justify-start text-xs mb-2">
+            <LogOut className="mr-2 h-4 w-4" /> Logout ({role})
           </Button>
         )}
         <div className="px-2 text-xs text-muted-foreground">Instant Laser Quotes</div>

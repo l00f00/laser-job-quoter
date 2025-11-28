@@ -29,19 +29,25 @@ LuxQuote is a visually-rich, polished single-page web application for creating i
 1. Start the frontend dev server: `bun run dev`
 2. In a separate terminal, start the Cloudflare Worker: `wrangler dev`
 3. Open `http://localhost:3000` in your browser.
+## Authentication Flow
+- **Role-Based Redirects**: After logging in, admins are redirected to `/admin`, and users are redirected to `/quotes`.
+- **Pre-fill Credentials**: Navigating to `/login?role=admin` will pre-fill the login form with admin credentials for easy testing.
+- **Multi-tab Sync**: The application uses storage events to synchronize authentication state across multiple browser tabs.
+- **Logout**: A logout button is available in the sidebar for authenticated users, which clears the session and redirects to the homepage.
 ## Testing the Application (End-to-End Flow)
-1.  **Login as User**: Use `demo@luxquote.com` / `demo123`.
+1.  **Login as User**: Use `demo@luxquote.com` / `demo123`. You will be redirected to `/quotes`.
 2.  **Create a Quote**: Go to `/quote`, upload a design, select a material, and click "Save Quote".
 3.  **View Saved Quotes**: Navigate to `/quotes` to see your saved project.
 4.  **Edit a Quote**: Click "Edit" on the quote card, make a change, and click "Update Quote".
 5.  **Checkout**: From the quote builder, click "Pay with Stripe" to simulate the checkout flow. You will be redirected to a mock success page.
-6.  **Login as Admin**: Log out and log back in with `admin@luxquote.com` / `admin123`.
-7.  **Admin View**: Go to `/admin/orders`.
+6.  **Logout**: Click the "Logout" button in the sidebar. You will be redirected to the homepage.
+7.  **Login as Admin**: Log back in with `admin@luxquote.com` / `admin123`. You will be redirected to `/admin`.
+8.  **Admin View**: Go to `/admin/orders`.
     - In the **Orders** tab, find the order you created and change its status from `pending` to `shipped`.
     - Download the SVG and Specs (CSV) files for an order.
     - In the **Analytics** tab (`/admin`), observe the updated revenue and material stats.
     - In the **Payments** tab (`/admin`), view the payment status and link to the mock Stripe session.
-8.  **Verify No Type Errors**: Run `bun run build && tsc --noEmit` to confirm the project is type-safe.
+9.  **Verify No Type Errors**: Run `bun run build && tsc --noEmit` to confirm the project is type-safe.
 ## Admin Features
 ### Credentials
 - **Admin**: `admin@luxquote.com` / `admin123`

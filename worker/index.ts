@@ -2,9 +2,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { userRoutes } from './user-routes';
+import { userRoutes, AppContext } from './user-routes';
 import { Env, GlobalDurableObject } from './core-utils';
-import type { LoginUser } from '@shared/types';
 // Need to export GlobalDurableObject to make it available in wrangler
 export { GlobalDurableObject };
 export interface ClientErrorReport {
@@ -21,13 +20,6 @@ export interface ClientErrorReport {
     colno?: number;
     error?: unknown;
   }
-// Define the AppContext type that user-routes expects
-type AppContext = {
-  Bindings: Env;
-  Variables: {
-    user: LoginUser;
-  };
-};
 const app = new Hono<AppContext>();
 app.use('*', logger());
 app.use('/api/*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowHeaders: ['Content-Type', 'Authorization'] }));
