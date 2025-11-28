@@ -9,7 +9,7 @@ import { UserEntity, ChatBoardEntity, QuoteEntity, OrderEntity, MaterialEntity, 
 import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
 import { OrderStatus, type LoginUser, type Quote, type Order, type PricePackage, type Material, type Article, type HelpRequest } from "@shared/types";
-type AppContext = {
+export type AppContext = {
   Bindings: Env;
   Variables: {
     user: LoginUser;

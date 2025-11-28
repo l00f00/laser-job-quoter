@@ -16,7 +16,6 @@ import { HomePage } from "@/pages/HomePage";
 import { DemoPage } from "@/pages/DemoPage";
 import LoginPage from "@/pages/LoginPage";
 import { QuotePage } from "@/pages/QuotePage";
-import { AdminPage } from "@/pages/AdminPage";
 import FullPageLoader from "@/components/common/FullPageLoader";
 /**
  * Import global styles.
@@ -24,6 +23,9 @@ import FullPageLoader from "@/components/common/FullPageLoader";
 import "@/index.css";
 // Lazy load pages that are not critical for the initial render
 const QuotesListPage = lazy(() => import('@/pages/QuotesListPage'));
+const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'));
+const AdminPage = lazy(() => import('@/pages/AdminPage'));
+const AdminOrdersPage = lazy(() => import('@/pages/AdminOrdersPage'));
 const AdminMaterialsPage = lazy(() => import('@/pages/AdminMaterialsPage'));
 const AdminPricingPage = lazy(() => import('@/pages/AdminPricingPage'));
 const AdminStripePage = lazy(() => import('@/pages/AdminStripePage'));
@@ -54,14 +56,18 @@ const App = () => {
               <Route path="/quote" element={<QuotePage />} />
               <Route path="/quote/:id" element={<QuotePage />} />
               <Route path="/quotes" element={<QuotesListPage />} />
-              {/* Auth & Admin routes */}
+              {/* Auth */}
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/admin" element={<AdminPage />} />
-              <Route path="/admin/materials" element={<AdminMaterialsPage />} />
-              <Route path="/admin/pricing" element={<AdminPricingPage />} />
-              <Route path="/admin/stripe" element={<AdminStripePage />} />
-              <Route path="/admin/help-center" element={<AdminHelpCenterPage />} />
-              <Route path="/admin/support" element={<AdminSupportPage />} />
+              {/* Admin routes */}
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminPage />} />
+                <Route path="orders" element={<AdminOrdersPage />} />
+                <Route path="materials" element={<AdminMaterialsPage />} />
+                <Route path="pricing" element={<AdminPricingPage />} />
+                <Route path="stripe" element={<AdminStripePage />} />
+                <Route path="help-center" element={<AdminHelpCenterPage />} />
+                <Route path="support" element={<AdminSupportPage />} />
+              </Route>
               {/* Fallback: reuse HomePage for unmatched routes */}
               <Route path="*" element={<HomePage />} />
             </Routes>

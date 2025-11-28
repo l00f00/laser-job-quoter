@@ -9,7 +9,7 @@ LuxQuote is a visually-rich, polished single-page web application for creating i
 - **Pricing Packages**: Choose from Economy, Standard, or Express options with estimated lead times and adjustable speed factors.
 - **Help & Support**: Floating help modal with manufacturing tips, constraints, and a form to request human review via backend submission.
 - **Saved Quotes & Editing**: Persist and list quotes with thumbnails, quick actions (duplicate, export, edit), and persistence using Durable Objects.
-- **Admin Dashboard**: A role-protected area to manage orders, view analytics, and oversee payments.
+- **Admin Dashboard**: A role-protected area with nested routes to manage orders, view analytics, and oversee payments.
 - **Responsive & Accessible**: Mobile-first design with smooth animations, micro-interactions, and full accessibility compliance.
 ## Technology Stack
 - **Frontend**: React 18, TypeScript, Tailwind CSS v3, shadcn/ui, Framer Motion, Zustand, React Router, Sonner, Recharts.
@@ -36,19 +36,22 @@ LuxQuote is a visually-rich, polished single-page web application for creating i
 4.  **Edit a Quote**: Click "Edit" on the quote card, make a change, and click "Update Quote".
 5.  **Checkout**: From the quote builder, click "Pay with Stripe" to simulate the checkout flow. You will be redirected to a mock success page.
 6.  **Login as Admin**: Log out and log back in with `admin@luxquote.com` / `admin123`.
-7.  **Admin View**: Go to `/admin`.
-    - In the **Orders** tab, find the order you created and change its status from `pending` to `processing`.
-    - In the **Analytics** tab, observe the updated revenue and material stats.
-    - In the **Payments** tab, view the payment status and link to the mock Stripe session.
+7.  **Admin View**: Go to `/admin/orders`.
+    - In the **Orders** tab, find the order you created and change its status from `pending` to `shipped`.
+    - Download the SVG and Specs (CSV) files for an order.
+    - In the **Analytics** tab (`/admin`), observe the updated revenue and material stats.
+    - In the **Payments** tab (`/admin`), view the payment status and link to the mock Stripe session.
 8.  **Verify No Type Errors**: Run `bun run build && tsc --noEmit` to confirm the project is type-safe.
 ## Admin Features
 ### Credentials
 - **Admin**: `admin@luxquote.com` / `admin123`
+- **Dev Mode**: Add `?dev=1` to the URL to enable a quick role-switcher button in the sidebar for easy testing.
 ### Dashboard Tabs
-- **Orders**: View/update orders, download CSV/SVG per row.
+- **Orders**: View/update orders, download SVG/Specs CSV per row. Statuses include `pending`, `processing`, `paid`, and `shipped`.
 - **Analytics**: Revenue/charts.
 - **Payments**: Status/sync.
 ### Admin Tools (Sidebar if logged as admin)
+- **/admin/orders**: Manage all customer orders.
 - **/admin/materials**: CRUD for materials.
 - **/admin/pricing**: Edit package multipliers/lead times.
 - **/admin/stripe**: Test secrets config.
@@ -62,6 +65,7 @@ LuxQuote is a visually-rich, polished single-page web application for creating i
 - **/api/admin/pricing**: GET/PUT packages.
 - **/api/admin/stripe/test**: POST for validation.
 - **GET /api/quotes/:id**: Now includes `fileContent` for SVG.
+- **PATCH /api/orders/:id**: Now supports `shipped` status.
 ### User Features
 - **QuoteBuilder**: Scale slider (50-200%), cut masking.
 - **HelpButton**: Submits to `/api/help-requests` with `quoteId` if saved.
