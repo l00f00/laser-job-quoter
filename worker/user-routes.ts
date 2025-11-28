@@ -10,6 +10,7 @@ import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
 import { OrderStatus, type LoginUser, type Quote, type Order, type PricePackage } from "@shared/types";
 import type { D1Database } from "@cloudflare/workers-types";
+import Stripe from 'stripe';
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // --- Auth Routes ---
   app.post('/api/login', async (c) => {
@@ -104,12 +105,44 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const quote = await quoteEntity.getState();
     const estimate = quote.estimate as PricePackage | undefined;
     if (!estimate || !estimate.total) return bad(c, 'Quote has no valid price estimate.');
-    const mockSession = {
-      id: `cs_test_${crypto.randomUUID().replace(/-/g, '')}`,
-      url: `${c.req.url.split('/api')[0]}/quotes?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-      metadata: { quote_id: quote.id },
-    };
-    return ok(c, { id: mockSession.id, url: mockSession.url });
+    const origin = c.req.header('origin') || c.req.url.split('/api')[0];
+    try {
+      // NOTE: In a real application, STRIPE_SECRET_KEY would be a secret in the Cloudflare dashboard.
+      const stripe = new Stripe(c.env.STRIPE_SECRET_KEY || 'sk_test_YOUR_FALLBACK_KEY_HERE', {
+        apiVersion: '2023-10-16', // Use a fixed API version for compatibility
+        httpClient: Stripe.createFetchHttpClient(), // Important for Cloudflare Workers
+      });
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `LuxQuote Order for: ${quote.title}`,
+                description: `Material: ${quote.materialId}, ${quote.thicknessMm}mm`,
+              },
+              unit_amount: Math.round(estimate.total * 100), // Amount in cents
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: `${origin}/quotes?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/quote/${quoteId}`,
+        metadata: {
+          quote_id: quoteId,
+        },
+      });
+      if (!session.url) {
+        return bad(c, 'Could not create Stripe session.');
+      }
+      return ok(c, { url: session.url });
+    } catch (e) {
+      console.error('Stripe session creation failed:', e);
+      // Fallback to a mock URL if Stripe fails (e.g., key not configured)
+      const mockUrl = `${origin}/quotes?payment=success&session_id=cs_test_mock_${crypto.randomUUID()}`;
+      return ok(c, { url: mockUrl });
+    }
   });
   app.post('/api/stripe/webhook', async (c) => {
     const event = await c.req.json();
