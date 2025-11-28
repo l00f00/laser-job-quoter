@@ -14,6 +14,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 function AdminDashboard() {
   const { data: orders, isLoading, error } = useQuery<Order[]>({
     queryKey: ['admin-orders'],
@@ -24,7 +26,7 @@ function AdminDashboard() {
   });
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-2">
         {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
       </div>
     );
@@ -45,32 +47,51 @@ function AdminDashboard() {
         <CardDescription>A list of all submitted orders.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Order ID</TableHead>
-              <TableHead>Quote ID</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Submitted</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orders?.map(order => (
-              <TableRow key={order.id}>
-                <TableCell className="font-mono text-xs">{order.id}</TableCell>
-                <TableCell className="font-mono text-xs">{order.quoteId}</TableCell>
-                <TableCell><Badge variant={order.status === 'paid' ? 'default' : 'secondary'}>{order.status}</Badge></TableCell>
-                <TableCell>{new Date(order.submittedAt).toLocaleString()}</TableCell>
-                <TableCell>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link to={`/quotes/${order.quoteId}`}>View Quote</Link>
-                  </Button>
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order ID</TableHead>
+                <TableHead>Quote ID</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Submitted</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              <AnimatePresence>
+                {orders?.map((order, i) => (
+                  <motion.tr
+                    key={order.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="hover:bg-muted/50"
+                  >
+                    <TableCell className="font-mono text-xs">{order.id}</TableCell>
+                    <TableCell className="font-mono text-xs">{order.quoteId}</TableCell>
+                    <TableCell>
+                      <Badge
+                        className={cn({
+                          'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': order.status === 'paid',
+                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200': order.status === 'pending',
+                        })}
+                      >
+                        {order.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{new Date(order.submittedAt).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to={`/quotes/${order.quoteId}`}>View Quote</Link>
+                      </Button>
+                    </TableCell>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

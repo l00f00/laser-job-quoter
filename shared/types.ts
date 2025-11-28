@@ -4,6 +4,11 @@ export interface ApiResponse<T = unknown> {
   error?: string;
 }
 // --- LuxQuote Types ---
+export enum OrderStatus {
+  Pending = 'pending',
+  Paid = 'paid',
+  Shipped = 'shipped',
+}
 export interface PricePackage {
   name: 'Economy' | 'Standard' | 'Express';
   leadTime: string;
@@ -35,12 +40,13 @@ export interface Quote {
   estimate?: PricePackage | Record<string, unknown>; // Store the calculated estimate
   thumbnail?: string; // small base64 preview
   status: 'draft' | 'requested' | 'in_progress' | 'complete';
+  dpiOverride?: number;
 }
 export interface Order {
   id: string;
   quoteId: string;
   userId: string;
-  status: 'pending' | 'paid' | 'shipped';
+  status: OrderStatus;
   submittedAt: number;
   paymentStatus: 'mock_pending' | 'mock_paid';
 }

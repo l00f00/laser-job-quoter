@@ -27,6 +27,19 @@ type QuoteState = {
   jobType: 'cut' | 'engrave' | 'both';
   savedQuoteId?: string;
 };
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
 export function QuoteBuilder() {
   const [state, setState] = useState<QuoteState>({ jobType: 'cut' });
   const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
@@ -116,16 +129,21 @@ export function QuoteBuilder() {
   };
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         <div className="lg:col-span-3 space-y-8">
-          <motion.div layout>
+          <motion.div layout variants={itemVariants}>
             <Card className={step === 1 ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}>
               <CardHeader><CardTitle>1. Select Material</CardTitle></CardHeader>
               <CardContent><MaterialSelector selectedMaterialId={state.material?.id} onSelectMaterial={handleSelectMaterial} /></CardContent>
             </Card>
           </motion.div>
           {state.material && (
-            <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div layout variants={itemVariants}>
               <Card>
                 <CardHeader><CardTitle>2. Job Options</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
@@ -147,14 +165,14 @@ export function QuoteBuilder() {
           )}
         </div>
         <div className="lg:col-span-6 space-y-8">
-          <motion.div layout>
+          <motion.div layout variants={itemVariants}>
             <Card className={step === 2 ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}>
               <CardHeader><CardTitle>3. Upload Artwork</CardTitle></CardHeader>
               <CardContent><UploadDropzone onFileAccepted={handleFileAccepted} /></CardContent>
             </Card>
           </motion.div>
           {state.fileContent && (
-            <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <motion.div layout variants={itemVariants} className="space-y-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Artwork Preview</CardTitle>
@@ -181,6 +199,7 @@ export function QuoteBuilder() {
                         <img
                           src={`data:image/svg+xml;base64,${btoa(state.fileContent)}`}
                           alt="Artwork preview"
+                          loading="lazy"
                           className={cn("max-h-full max-w-full transition-all duration-300", artworkPreviewStyles[state.jobType])}
                           style={{
                             filter: state.jobType === 'cut' ? 'drop-shadow(0 0 1px black)' : 'none',
@@ -188,8 +207,8 @@ export function QuoteBuilder() {
                         />
                          {showKerf && state.material && (
                           <div
-                            className="absolute inset-0 pointer-events-none border-red-500/70 border-dashed"
-                            style={{ borderWidth: `${(state.material.kerfMm / 2)}px` }}
+                            className="absolute inset-0 pointer-events-none border-red-500/50 border-dashed"
+                            style={{ borderWidth: `${state.material.kerfMm / 2}px` }}
                           />
                         )}
                       </motion.div>
@@ -210,7 +229,7 @@ export function QuoteBuilder() {
           )}
         </div>
         <div className="lg:col-span-3">
-          <motion.div layout className="sticky top-24">
+          <motion.div layout variants={itemVariants} className="sticky top-24">
             {pricePackages ? (
               <PriceCard packages={pricePackages} quoteId={state.savedQuoteId} onSaveQuote={handleSaveQuote} isSaving={isSaving} />
             ) : (
@@ -223,7 +242,7 @@ export function QuoteBuilder() {
             )}
           </motion.div>
         </div>
-      </div>
+      </motion.div>
       <LoginModal open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen} onLoginSuccess={() => toast.info("Login successful! Please click 'Save Quote' again.")} />
     </>
   );

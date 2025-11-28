@@ -27,14 +27,19 @@ const featureCards = [
     description: 'Get assistance from our team at any step of the process.',
   },
 ];
+const cardVariants = {
+  hidden: { scale: 0.95, opacity: 0 },
+  visible: { scale: 1, opacity: 1 },
+};
 export function HomePage() {
   return (
     <AppLayout>
       <ThemeToggle />
       <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-mesh opacity-20 dark:opacity-10" />
         {/* Hero Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-24 md:py-32 lg:py-40 text-center">
+          <div className="py-24 md:py-32 lg:py-40 text-center relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -50,7 +55,7 @@ export function HomePage() {
                 From prototype to production, get precise pricing for your laser cutting and engraving projects in real-time. Upload your design and see the magic happen.
               </p>
               <div className="mt-10 flex justify-center">
-                <Button asChild size="lg" className="text-lg px-8 py-6 bg-[rgb(245,128,37)] hover:bg-[rgb(230,90,27)] text-white shadow-primary hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                <Button asChild size="lg" className="text-lg px-8 py-6 bg-[rgb(245,128,37)] hover:bg-[rgb(230,90,27)] text-white shadow-primary hover:shadow-lg hover:-translate-y-1 transition-all duration-200 focus:ring-2 focus:ring-[rgb(99,102,241)] focus:ring-offset-2">
                   <Link to="/quote">
                     Start a Quote <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
@@ -60,7 +65,7 @@ export function HomePage() {
           </div>
         </div>
         {/* Features Section */}
-        <div className="bg-muted/50">
+        <div className="bg-muted/50 relative">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="py-16 md:py-24 lg:py-32">
               <div className="text-center max-w-3xl mx-auto">
@@ -73,10 +78,11 @@ export function HomePage() {
                 {featureCards.map((feature, i) => (
                   <motion.div
                     key={feature.title}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.5, delay: i * 0.1 }}
+                    variants={cardVariants}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, amount: 0.5 }}
+                    transition={{ duration: 0.4, delay: i * 0.1 }}
                   >
                     <Card className="h-full text-center shadow-soft hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
                       <CardHeader>
@@ -96,7 +102,7 @@ export function HomePage() {
           </div>
         </div>
         <footer className="text-center py-8 text-muted-foreground/80">
-          <p>Built with ❤��� at Cloudflare</p>
+          <p>Built with ❤️ at Cloudflare</p>
         </footer>
       </div>
     </AppLayout>
