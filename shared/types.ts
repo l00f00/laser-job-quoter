@@ -59,6 +59,10 @@ export interface LoginUser {
   name: string;
   role?: 'user' | 'admin';
 }
+export interface LoginResponse {
+  user: LoginUser;
+  token: string;
+}
 // --- Template Demo Types (can be removed later) ---
 export interface User {
   id: string;

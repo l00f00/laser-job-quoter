@@ -3,9 +3,25 @@ import type { Env } from './core-utils';
 import { UserEntity, ChatBoardEntity, QuoteEntity, OrderEntity } from "./entities";
 import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
-import { OrderStatus } from "@shared/types";
-import type { Quote, Order, PricePackage } from "@shared/types";
+import { OrderStatus, type LoginUser, type Quote, type Order, type PricePackage } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
+  // --- Auth Routes ---
+  app.post('/api/login', async (c) => {
+    const { email, password } = await c.req.json<{ email?: string, password?: string }>();
+    if (!isStr(email) || !isStr(password)) return bad(c, 'Email and password required');
+    const lowerEmail = email.toLowerCase();
+    let user: LoginUser | null = null;
+    if (lowerEmail === 'demo@luxquote.com' && password === 'demo123') {
+      user = { id: 'user_demo_01', email, name: 'Demo User', role: 'user' };
+    } else if (lowerEmail === 'admin@luxquote.com' && password === 'admin123') {
+      user = { id: 'admin_01', email, name: 'Admin User', role: 'admin' };
+    }
+    if (!user) {
+      return c.json({ success: false, error: 'Invalid credentials' }, 401);
+    }
+    const token = `mock_jwt_${btoa(email + ':' + Date.now())}`;
+    return ok(c, { user, token });
+  });
   // --- LuxQuote Routes ---
   app.get('/api/materials', (c) => {
     return ok(c, MOCK_MATERIALS);
@@ -114,7 +130,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/admin/orders', async (c) => {
     await OrderEntity.ensureSeed(c.env);
     const page = await OrderEntity.list(c.env);
-    const sorted = page.items.sort((a, b) => b.submittedAt - a.submittedAt);
+    const sorted = page.items.sort((a, b) => b.submittedAt - a.createdAt);
     return ok(c, sorted);
   });
   app.patch('/api/orders/:id', async (c) => {

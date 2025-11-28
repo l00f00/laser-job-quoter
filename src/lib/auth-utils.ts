@@ -1,44 +1,22 @@
-import type { LoginUser } from '@shared/types';
-const MOCK_USER: LoginUser = {
-  id: 'user_demo_01',
-  email: 'demo@luxquote.com',
-  name: 'Demo User',
-  role: 'user',
-};
-const MOCK_ADMIN_USER: LoginUser = {
-  id: 'admin_01',
-  email: 'admin@luxquote.com',
-  name: 'Admin User',
-  role: 'admin',
-};
-const MOCK_PASSWORD = 'demo123';
-const MOCK_ADMIN_PASSWORD = 'admin123';
+import type { LoginUser, ApiResponse, LoginResponse } from '@shared/types';
 const TOKEN_KEY = 'luxquote_auth_token';
 const USER_KEY = 'luxquote_user';
-// Simple "hash" for mock purposes
-const createToken = (email: string, pass: string) => `mock_token_${btoa(`${email}:${pass}`)}`;
 export const mockAuth = {
-  login: (email: string, pass: string): Promise<LoginUser> => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const lowerEmail = email.toLowerCase();
-        let user: LoginUser | null = null;
-        if (lowerEmail === MOCK_USER.email && pass === MOCK_PASSWORD) {
-          user = MOCK_USER;
-        } else if (lowerEmail === MOCK_ADMIN_USER.email && pass === MOCK_ADMIN_PASSWORD) {
-          user = MOCK_ADMIN_USER;
-        }
-        if (user) {
-          const token = createToken(email, pass);
-          localStorage.setItem(TOKEN_KEY, token);
-          localStorage.setItem(USER_KEY, JSON.stringify(user));
-          window.dispatchEvent(new Event('storage')); // Notify other tabs/components
-          resolve(user);
-        } else {
-          reject(new Error('Invalid credentials. Use demo@luxquote.com / demo123 or admin@luxquote.com / admin123.'));
-        }
-      }, 500);
+  login: async (email: string, pass: string): Promise<LoginUser> => {
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass }),
     });
+    const json = await response.json() as ApiResponse<LoginResponse>;
+    if (!response.ok || !json.success || !json.data) {
+      throw new Error(json.error || 'Login failed');
+    }
+    const { user, token } = json.data;
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem(TOKEN_KEY, token);
+    window.dispatchEvent(new Event('storage')); // Notify other tabs/components
+    return user;
   },
   logout: () => {
     localStorage.removeItem(TOKEN_KEY);

@@ -57,8 +57,10 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
   useEffect(() => {
     if (editMode && initialQuote && materials) {
       const material = materials.find(m => m.id === initialQuote.materialId);
-      const fileContent = initialQuote.thumbnail ? atob(initialQuote.thumbnail.split(',')[1]) : undefined;
-      setState({
+      const fileContent = initialQuote.thumbnail && initialQuote.thumbnail.startsWith('data:image/svg+xml;base64,')
+        ? atob(initialQuote.thumbnail.split(',')[1])
+        : undefined;
+      const newState: QuoteState = {
         jobType: initialQuote.jobType,
         material,
         thicknessMm: initialQuote.thicknessMm,
@@ -71,11 +73,13 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
           engraveAreaSqMm: 0, // Recalculate
           pathComplexity: 0,
         },
-      });
+      };
+      setState(newState);
       if (fileContent) {
+        setIsLoadingMetrics(true);
         getSvgMetrics(fileContent, initialQuote.physicalWidthMm).then(metrics => {
           setState(s => ({ ...s, artworkMetrics: metrics }));
-        });
+        }).finally(() => setIsLoadingMetrics(false));
       }
     }
   }, [editMode, initialQuote, materials]);
@@ -89,11 +93,10 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         setState(s => ({ ...s, artworkMetrics: metrics }));
         toast.success('Artwork analyzed successfully!');
       } else {
-        const aspectRatio = await new Promise<number>(resolve => {
-          const img = new Image();
-          img.onload = () => resolve(img.height / img.width);
-          img.src = content;
-        });
+        const img = new Image();
+        img.src = content; // content is data URL for rasters
+        await img.decode();
+        const aspectRatio = img.height / img.width;
         const metrics: ArtworkMetrics = {
           widthMm: physicalWidthMm,
           heightMm: physicalWidthMm * aspectRatio,
@@ -127,9 +130,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
     }
   }, [state.artworkMetrics, state.material, state.thicknessMm]);
   const pricePackages = useMemo((): PricePackage[] | null => {
-    if (!displayedMetrics || !state.material || !state.thicknessMm) {
-      return null;
-    }
+    if (!displayedMetrics || !state.material || !state.thicknessMm) return null;
     return calculateEstimate(displayedMetrics, {
       material: state.material,
       thicknessMm: state.thicknessMm,
@@ -147,6 +148,8 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
     }
     setIsSaving(true);
     try {
+      const isSvg = state.file?.type.includes('svg') || initialQuote?.thumbnail?.startsWith('data:image/svg+xml');
+      const thumbnail = isSvg && state.fileContent ? `data:image/svg+xml;base64,${btoa(state.fileContent)}` : initialQuote?.thumbnail;
       const quoteData: Partial<Quote> = {
         title: state.file?.name || initialQuote?.title || 'Untitled Quote',
         materialId: state.material.id,
@@ -155,13 +158,12 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         physicalWidthMm: state.artworkMetrics.widthMm,
         physicalHeightMm: state.artworkMetrics.heightMm,
         estimate: selectedPackage,
-        thumbnail: state.fileContent ? `data:image/svg+xml;base64,${btoa(state.fileContent)}` : initialQuote?.thumbnail,
+        thumbnail,
       };
       if (editMode && state.savedQuoteId) {
         const updatedQuote = await api<Quote>(`/api/quotes/${state.savedQuoteId}`, {
           method: 'PUT',
           body: JSON.stringify(quoteData),
-          headers: { 'Authorization': `Bearer ${mockAuth.getToken()}` }
         });
         setState(s => ({ ...s, savedQuoteId: updatedQuote.id }));
         toast.success('Quote updated successfully!');
@@ -169,7 +171,6 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         const savedQuote = await api<Quote>('/api/quotes', {
           method: 'POST',
           body: JSON.stringify(quoteData),
-          headers: { 'Authorization': `Bearer ${mockAuth.getToken()}` }
         });
         setState(s => ({ ...s, savedQuoteId: savedQuote.id }));
         toast.success('Quote saved!', { description: 'You can now proceed to checkout.' });
@@ -180,26 +181,31 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       setIsSaving(false);
     }
   };
-  const processedPreviewSrc = useMemo(() => {
-    if (!state.fileContent) return '';
+  const processedPreviewData = useMemo(() => {
+    if (!state.fileContent) return { type: 'none' };
     const isSvg = (state.file?.type.includes('svg')) || (initialQuote?.thumbnail?.startsWith('data:image/svg+xml'));
-    if (state.jobType === 'cut' && isSvg) {
-      const processedSvg = processSvgForCut(state.fileContent, redLines ? 'red' : 'black');
-      const base64 = btoa(unescape(encodeURIComponent(processedSvg)));
-      return `data:image/svg+xml;base64,${base64}`;
+    if (!isSvg) {
+        return { type: 'raster', src: state.fileContent };
     }
-    if (isSvg) {
-      const base64 = btoa(unescape(encodeURIComponent(state.fileContent)));
-      return `data:image/svg+xml;base64,${base64}`;
+    const toBase64 = (svgString: string) => `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
+    if (state.jobType === 'cut') {
+        const processedSvg = processSvgForCut(state.fileContent, redLines ? 'red' : 'black');
+        return { type: 'cut', src: toBase64(processedSvg) };
     }
-    return state.fileContent;
+    if (state.jobType === 'engrave') {
+        return { type: 'engrave', src: toBase64(state.fileContent) };
+    }
+    if (state.jobType === 'both') {
+        const cutSvg = processSvgForCut(state.fileContent, redLines ? 'red' : 'black');
+        return {
+            type: 'both',
+            engraveSrc: toBase64(state.fileContent),
+            cutSrc: toBase64(cutSvg),
+        };
+    }
+    return { type: 'none' };
   }, [state.fileContent, state.file, state.jobType, redLines, initialQuote]);
   const step = !state.material ? 1 : !state.fileContent ? 2 : 3;
-  const artworkPreviewStyles = {
-    cut: 'mix-blend-normal',
-    engrave: 'mix-blend-multiply opacity-70',
-    both: 'mix-blend-normal',
-  };
   return (
     <>
       <motion.div
@@ -250,13 +256,13 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
                 <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
                   <CardTitle>Artwork Preview</CardTitle>
                   <div className="flex items-center space-x-4">
-                    {state.material && (
+                    {state.material && (state.jobType === 'cut' || state.jobType === 'both') && (
                       <div className="flex items-center space-x-2">
                         <Label htmlFor="kerf-toggle">Kerf View</Label>
                         <Switch id="kerf-toggle" checked={showKerf} onCheckedChange={setShowKerf} />
                       </div>
                     )}
-                    {state.jobType === 'cut' && (
+                    {(state.jobType === 'cut' || state.jobType === 'both') && (
                       <div className="flex items-center space-x-2">
                         <Label htmlFor="red-lines">Red Lines</Label>
                         <Switch id="red-lines" checked={redLines} onCheckedChange={setRedLines} />
@@ -277,19 +283,18 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
                         className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 relative overflow-hidden bg-cover bg-center"
                         style={{ backgroundImage: state.material?.textureUrl ? `url(${state.material.textureUrl})` : 'none' }}
                       >
-                        <img
-                          key={processedPreviewSrc}
-                          src={processedPreviewSrc}
-                          alt="Artwork preview"
-                          loading="lazy"
-                          width={state.artworkMetrics?.widthMm}
-                          height={state.artworkMetrics?.heightMm}
-                          className={cn("max-h-full max-w-full object-contain transition-all duration-300", artworkPreviewStyles[state.jobType])}
-                          style={{ imageRendering: 'auto' as const }}
-                        />
-                         {showKerf && state.material && (
+                        {processedPreviewData.type === 'raster' && <img src={processedPreviewData.src} alt="Artwork preview" className="max-h-full max-w-full object-contain" />}
+                        {processedPreviewData.type === 'engrave' && <img src={processedPreviewData.src} alt="Engrave preview" className="max-h-full max-w-full object-contain mix-blend-multiply opacity-70" />}
+                        {processedPreviewData.type === 'cut' && <img src={processedPreviewData.src} alt="Cut preview" className="max-h-full max-w-full object-contain" />}
+                        {processedPreviewData.type === 'both' && (
+                          <motion.div className="w-full h-full" variants={containerVariants} initial="hidden" animate="visible">
+                            <motion.img key="engrave" src={processedPreviewData.engraveSrc} alt="Engrave layer" variants={itemVariants} className="absolute inset-0 w-full h-full object-contain p-4 mix-blend-multiply opacity-70 z-0" />
+                            <motion.img key="cut" src={processedPreviewData.cutSrc} alt="Cut layer" variants={itemVariants} transition={{delay: 0.2}} className="absolute inset-0 w-full h-full object-contain p-4 z-10" />
+                          </motion.div>
+                        )}
+                         {showKerf && state.material && (state.jobType === 'cut' || state.jobType === 'both') && (
                           <div
-                            className="absolute inset-0 pointer-events-none border-red-500/50 border-dashed"
+                            className="absolute inset-0 pointer-events-none border-red-500/50 border-dashed z-20"
                             style={{ borderWidth: `${state.material.kerfMm / 2}px` }}
                           />
                         )}

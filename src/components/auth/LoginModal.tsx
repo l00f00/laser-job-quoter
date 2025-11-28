@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { mockAuth } from '@/lib/auth-utils';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 interface LoginModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -75,8 +76,12 @@ export function LoginModal({ open, onOpenChange, onLoginSuccess }: LoginModalPro
               />
             </div>
           </div>
-          <DialogFooter>
+          <p className="text-xs text-muted-foreground text-center px-6">
+            Demo: demo@luxquote.com / demo123 | Admin: admin@luxquote.com / admin123
+          </p>
+          <DialogFooter className="mt-4">
             <Button type="submit" disabled={isLoading} className="w-full bg-[rgb(245,128,37)] hover:bg-[rgb(230,90,27)] text-white">
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {isLoading ? 'Logging in...' : 'Login'}
             </Button>
           </DialogFooter>
