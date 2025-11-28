@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,7 +13,6 @@ import { api } from '@/lib/api-client';
 import type { Material } from '@shared/types';
 import { toast } from 'sonner';
 import { PlusCircle, Edit, Trash2, AlertTriangle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 const MaterialForm = ({ material, onSave, onCancel }: { material?: Material | null, onSave: (data: Partial<Material>) => void, onCancel: () => void }) => {
   const [formData, setFormData] = useState<Partial<Material>>(material || {});
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,7 +50,6 @@ export default function AdminMaterialsPage() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Material | null>(null);
   const { data: materials, isLoading, error } = useQuery<Material[]>({
     queryKey: ['admin-materials'],
     queryFn: () => api('/api/admin/materials'),
@@ -77,7 +75,6 @@ export default function AdminMaterialsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-materials'] });
       queryClient.invalidateQueries({ queryKey: ['materials'] });
       toast.success('Material deleted!');
-      setDeleteConfirm(null);
     },
     onError: (err) => toast.error('Failed to delete material', { description: (err as Error).message }),
   });
@@ -93,37 +90,24 @@ export default function AdminMaterialsPage() {
         </div>
         <Button onClick={() => { setEditingMaterial(null); setIsModalOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" /> Add Material</Button>
       </div>
+      {isLoading && <Skeleton className="h-64 w-full" />}
       {error && <Alert variant="destructive"><AlertTriangle /> <AlertTitle>Error</AlertTitle><AlertDescription>{(error as Error).message}</AlertDescription></Alert>}
-      <div className="rounded-lg border overflow-x-auto">
+      <div className="rounded-lg border overflow-hidden">
         <Table>
           <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Cost/SqMm</TableHead><TableHead>Kerf</TableHead><TableHead>Thicknesses</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
           <TableBody>
-            {isLoading ? (
-              [...Array(3)].map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-20" /></TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <AnimatePresence>
-                {materials?.map((mat, i) => (
-                  <motion.tr key={mat.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                    <TableCell className="font-medium">{mat.name}</TableCell>
-                    <TableCell>${mat.costPerSqMm.toFixed(4)}</TableCell>
-                    <TableCell>{mat.kerfMm}mm</TableCell>
-                    <TableCell>{mat.thicknessesMm.join(', ')}mm</TableCell>
-                    <TableCell className="space-x-2">
-                      <Button variant="ghost" size="icon" onClick={() => { setEditingMaterial(mat); setIsModalOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteConfirm(mat)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </TableCell>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-            )}
+            {materials?.map(mat => (
+              <TableRow key={mat.id}>
+                <TableCell className="font-medium">{mat.name}</TableCell>
+                <TableCell>${mat.costPerSqMm.toFixed(4)}</TableCell>
+                <TableCell>{mat.kerfMm}mm</TableCell>
+                <TableCell>{mat.thicknessesMm.join(', ')}mm</TableCell>
+                <TableCell className="space-x-2">
+                  <Button variant="ghost" size="icon" onClick={() => { setEditingMaterial(mat); setIsModalOpen(true); }}><Edit className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => window.confirm('Are you sure?') && deleteMutation.mutate(mat.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
@@ -131,16 +115,6 @@ export default function AdminMaterialsPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editingMaterial ? 'Edit' : 'Add'} Material</DialogTitle></DialogHeader>
           <MaterialForm material={editingMaterial} onSave={(data) => mutation.mutate(data)} onCancel={() => setIsModalOpen(false)} />
-        </DialogContent>
-      </Dialog>
-      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Confirm Deletion</DialogTitle></DialogHeader>
-          <DialogDescription>Are you sure you want to delete the material "{deleteConfirm?.name}"? This action cannot be undone.</DialogDescription>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm.id)}>Delete</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppLayout>

@@ -3,10 +3,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit, AlertTriangle, ArrowUpDown } from 'lucide-react';
+import { Edit, AlertTriangle, ArrowUpDown, Download } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { mockAuth } from '@/lib/auth-utils';
-import type { Order, Material } from '@shared/types';
+import type { Order, Material, Quote } from '@shared/types';
 import { OrderStatus } from '@shared/types';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { exportQuoteCSV, downloadQuoteSvg } from '@/lib/export-utils';
 type SortConfig = { key: keyof Order; direction: 'asc' | 'desc' };
 export function OrdersTab() {
   const queryClient = useQueryClient();
@@ -27,11 +28,11 @@ export function OrdersTab() {
     queryKey: ['materials'],
     queryFn: () => api('/api/materials'),
   });
-  const materialsById = useMemo(() => new Map(materials?.map(m => [m.id, m.name])), [materials]);
+  const materialsById = useMemo(() => new Map(materials?.map(m => [m.id, m])), [materials]);
   const { data: orders, isLoading, error } = useQuery<Order[]>({
     queryKey: ['admin-orders'],
     queryFn: () => api('/api/admin/orders', { headers: { 'Authorization': `Bearer ${mockAuth.getToken()}` } }),
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    refetchInterval: 30000,
   });
   const sortedOrders = useMemo(() => {
     if (!orders) return [];
@@ -62,6 +63,22 @@ export function OrdersTab() {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
     } catch (e) {
       toast.error('Failed to update status', { description: (e as Error).message });
+    }
+  };
+  const handleDownload = async (quoteId: string, quantity: number = 1) => {
+    toast.info('Preparing download...');
+    try {
+      const fullQuote = await api<Quote>(`/api/quotes/${quoteId}`);
+      const material = materialsById.get(fullQuote.materialId);
+      if (fullQuote.fileContent) {
+        downloadQuoteSvg(fullQuote.fileContent, `luxquote_${quoteId}.svg`);
+      } else {
+        toast.warning('No SVG file available for this quote.');
+      }
+      exportQuoteCSV(fullQuote, quantity, material);
+      toast.success('Downloads started!');
+    } catch (e) {
+      toast.error('Failed to download files', { description: (e as Error).message });
     }
   };
   if (isLoading) return (
@@ -115,7 +132,7 @@ export function OrdersTab() {
                         ) : <div className="w-12 h-12 bg-muted rounded-md" />}
                       </TableCell>
                       <TableCell className="font-medium">{order.quote?.title ?? 'N/A'}</TableCell>
-                      <TableCell>{materialsById.get(order.quote?.materialId ?? '') ?? 'N/A'}</TableCell>
+                      <TableCell>{materialsById.get(order.quote?.materialId ?? '')?.name ?? 'N/A'}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{order.quote ? `${order.quote.physicalWidthMm}x${order.quote.physicalHeightMm}mm` : 'N/A'}</TableCell>
                       <TableCell>{order.quantity ?? 1}</TableCell>
                       <TableCell className="font-semibold">${(((order.quote?.estimate as any)?.total ?? 0) * (order.quantity ?? 1)).toFixed(2)}</TableCell>
@@ -128,9 +145,9 @@ export function OrdersTab() {
                       </TableCell>
                       <TableCell>{new Date(order.submittedAt).toLocaleString()}</TableCell>
                       <TableCell className="font-mono text-xs">{order.userId}</TableCell>
-                      <TableCell className="space-x-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link to={`/quote/${order.quoteId}`}>View</Link>
+                      <TableCell className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(order.quoteId, order.quantity)}>
+                          <Download className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingOrder(order); setNewStatus(order.status); }}>
                           <Edit className="h-4 w-4" />

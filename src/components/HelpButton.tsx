@@ -16,7 +16,11 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { motion } from 'framer-motion';
-export function HelpButton() {
+import type { HelpRequest } from '@shared/types';
+interface HelpButtonProps {
+  savedQuoteId?: string;
+}
+export function HelpButton({ savedQuoteId }: HelpButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -24,30 +28,28 @@ export function HelpButton() {
     setIsSubmitting(true);
     const formData = new FormData(event.currentTarget);
     const message = formData.get('message') as string;
+    const quoteId = formData.get('quoteId') as string;
     if (!message.trim()) {
       toast.error('Message is required.');
       setIsSubmitting(false);
       return;
     }
     try {
-      await api('/api/client-errors', {
+      const response = await api<HelpRequest>('/api/help-requests', {
         method: 'POST',
         body: JSON.stringify({
-          message: `HELP REQUEST: ${message}`,
-          source: 'HelpButton',
-          url: window.location.href,
-          userAgent: navigator.userAgent,
-          timestamp: new Date().toISOString(),
+          message: message,
+          quoteId: quoteId || undefined,
         }),
       });
       toast.success('Help request sent!', {
-        description: 'Our team will get back to you shortly.',
+        description: `Our team will get back to you shortly. Request ID: ${response.id}`,
         icon: <CheckCircle className="h-5 w-5 text-green-500" />,
       });
       setIsOpen(false);
     } catch (error) {
       toast.error('Failed to send request', {
-        description: 'Please try again later or contact us directly.',
+        description: (error as Error).message || 'Please try again later or contact us directly.',
       });
     } finally {
       setIsSubmitting(false);
@@ -78,13 +80,14 @@ export function HelpButton() {
               </SheetDescription>
             </SheetHeader>
             <form onSubmit={handleSubmit} className="py-4 space-y-4 flex-grow flex flex-col">
+              <input type="hidden" name="quoteId" value={savedQuoteId || ''} />
               <div className="space-y-2">
                 <Label htmlFor="name">Name (Optional)</Label>
-                <Input id="name" name="name" placeholder="Your Name" defaultValue="Demo User" />
+                <Input id="name" name="name" placeholder="Your Name" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email (Optional)</Label>
-                <Input id="email" name="email" type="email" placeholder="your@email.com" defaultValue="demo@luxquote.com" />
+                <Input id="email" name="email" type="email" placeholder="your@email.com" />
               </div>
               <div className="space-y-2 flex-grow flex flex-col">
                 <Label htmlFor="message">Message</Label>

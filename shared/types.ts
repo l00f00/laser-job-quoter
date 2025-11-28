@@ -40,6 +40,7 @@ export interface Quote {
   physicalHeightMm: number;
   estimate?: PricePackage | Record<string, unknown>; // Store the calculated estimate
   thumbnail?: string; // small base64 preview
+  fileContent?: string; // Full SVG content, base64 encoded
   status: 'draft' | 'requested' | 'in_progress' | 'complete';
   dpiOverride?: number;
 }
@@ -74,6 +75,24 @@ export interface LoginUser {
 export interface LoginResponse {
   user: LoginUser;
   token: string;
+}
+// --- New Admin & Help Types ---
+export interface Article {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: number;
+}
+export interface HelpRequest {
+  id: string;
+  message: string;
+  quoteId?: string;
+  userId: string;
+  status: 'open' | 'resolved';
+  timestamp: number;
+}
+export interface PricingConfig {
+  packages: PricePackage[];
 }
 // --- Template Demo Types (can be removed later) ---
 export interface User {

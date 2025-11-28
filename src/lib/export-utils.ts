@@ -1,6 +1,6 @@
 import { saveAs } from 'file-saver';
-import type { Quote, PricePackage } from '@shared/types';
-export function exportQuoteCSV(quote: Quote) {
+import type { Quote, PricePackage, Material } from '@shared/types';
+export function exportQuoteCSV(quote: Quote, quantity: number = 1, material?: Material) {
   const estimate = quote.estimate as PricePackage | undefined;
   if (!estimate?.breakdown) {
     alert('Cannot export quote without a price breakdown.');
@@ -9,22 +9,23 @@ export function exportQuoteCSV(quote: Quote) {
   let csvContent = 'data:text/csv;charset=utf-8,';
   csvContent += 'Item,Value\r\n';
   csvContent += `Quote Title,${quote.title}\r\n`;
-  csvContent += `Material ID,${quote.materialId}\r\n`;
-  csvContent += `Thickness (mm),${quote.thicknessMm}\r\n`;
+  csvContent += `Quantity,${quantity}\r\n`;
   csvContent += `Job Type,${quote.jobType}\r\n`;
-  csvContent += `Total Price,${estimate.total}\r\n`;
+  csvContent += `Total Price,${(estimate.total * quantity).toFixed(2)}\r\n`;
   csvContent += '\r\n';
-  csvContent += 'Price Breakdown\r\n';
+  csvContent += 'Material Specs\r\n';
+  csvContent += `Material Name,${material?.name || quote.materialId}\r\n`;
+  csvContent += `Thickness (mm),${quote.thicknessMm}\r\n`;
+  csvContent += `Kerf (mm),${material?.kerfMm || 'N/A'}\r\n`;
+  csvContent += `Min Feature (mm),${material?.minFeatureMm || 'N/A'}\r\n`;
+  csvContent += `Cost per sq/mm,${material?.costPerSqMm || 'N/A'}\r\n`;
+  csvContent += '\r\n';
+  csvContent += 'Price Breakdown (per unit)\r\n';
   for (const [key, value] of Object.entries(estimate.breakdown)) {
     csvContent += `${key},${value}\r\n`;
   }
   const encodedUri = encodeURI(csvContent);
-  const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `luxquote_${quote.id}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  saveAs(encodedUri, `luxquote_${quote.id}_x${quantity}.csv`);
 }
 export function exportQuotePDF(quote: Quote) {
   const estimate = quote.estimate as PricePackage | undefined;
@@ -75,6 +76,26 @@ export function exportQuotePDF(quote: Quote) {
   const printWindow = window.open(url);
   printWindow?.addEventListener('load', () => {
     printWindow.print();
-    // URL.revokeObjectURL(url); // Can cause issues if print dialog is slow
   });
+}
+export function downloadQuoteSvg(fileContent: string, filename: string) {
+  try {
+    if (fileContent.startsWith('data:image/svg+xml;base64,')) {
+      const byteString = atob(fileContent.split(',')[1]);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], { type: 'image/svg+xml' });
+      saveAs(blob, filename);
+    } else {
+      // Fallback for raw SVG string
+      const blob = new Blob([fileContent], { type: 'image/svg+xml' });
+      saveAs(blob, filename);
+    }
+  } catch (error) {
+    console.error("Failed to download SVG:", error);
+    alert("Could not process the SVG file for download.");
+  }
 }

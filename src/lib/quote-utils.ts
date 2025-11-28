@@ -145,67 +145,73 @@ export function processSvgForCut(svgString: string, strokeColor: string = 'black
       console.error("SVG parsing error:", parserError.textContent);
       throw new Error('Invalid SVG content');
     }
-
-    // Ensure root <svg> has an xmlns so data URLs and embeds render consistently
     const root = doc.documentElement;
     if (root && root.tagName && root.tagName.toLowerCase() === 'svg' && !root.getAttribute('xmlns')) {
       root.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     }
-
     const elements = doc.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line');
     elements.forEach(el => {
-      // Remove any stroke/fill/stroke-width declarations from the style attribute so presentation
-      // attributes and inline style we set below take effect.
-      const styleAttr = el.getAttribute('style');
-      if (styleAttr) {
-        const parts = styleAttr.split(';').map(s => s.trim()).filter(Boolean);
-        const filtered = parts.filter(p => {
-          const key = p.split(':')[0].trim().toLowerCase();
-          return !(key === 'stroke' || key === 'fill' || key === 'stroke-width');
-        });
-        if (filtered.length > 0) {
-          el.setAttribute('style', filtered.join('; '));
-        } else {
-          el.removeAttribute('style');
-        }
-      }
-
-      // Set presentation attributes for cut preview
       el.setAttribute('fill', 'none');
       el.setAttribute('stroke', strokeColor);
       el.setAttribute('stroke-width', '0.5');
-
-      // Also set explicit inline style properties (with high specificity) to override stylesheet rules.
-      // Use CSSOM setProperty so these appear as inline styles.
-      try {
-        (el as unknown as { style?: CSSStyleDeclaration }).style?.setProperty('stroke', strokeColor, 'important');
-        (el as unknown as { style?: CSSStyleDeclaration }).style?.setProperty('fill', 'none', 'important');
-        (el as unknown as { style?: CSSStyleDeclaration }).style?.setProperty('stroke-width', '0.5', 'important');
-      } catch {
-        // If style manipulation is not supported for some element, ignore and rely on presentation attributes.
-      }
     });
-
     const serializer = new XMLSerializer();
     return serializer.serializeToString(doc.documentElement);
   } catch (error) {
     console.error("Failed to process SVG for cut preview:", error);
-    return svgString; // Fallback to original string on error
+    return svgString;
   }
 }
-// Stub for path simplification
-export function simplifiedMetrics(svgString: string, sampleRate: number = 10): Promise<ArtworkMetrics> {
-  console.log('Path simplification stub called with sample rate:', sampleRate);
-  // In a real implementation, this would parse the SVG, reduce path nodes, and recalculate metrics.
-  // For now, it just returns the original metrics.
-  return getSvgMetrics(svgString, 100); // Assuming a default width for re-calculation
-}
-// Stub for kerf visualization
-export function getKerfAdjustedMetrics(originalMetrics: ArtworkMetrics, kerfMm: number): ArtworkMetrics {
-  // This is a visual approximation. Real kerf compensation is a complex geometric operation.
-  const perimeter = 2 * (originalMetrics.widthMm + originalMetrics.heightMm);
-  return {
-    ...originalMetrics,
-    cutLengthMm: originalMetrics.cutLengthMm + (perimeter * kerfMm), // Approximate added length
-  };
+export function createMaskedTextureSvg(svgString: string, textureUrl: string, width: number, height: number, redLines: boolean): string {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgString, 'image/svg+xml');
+    if (doc.querySelector('parsererror')) throw new Error('Invalid SVG');
+    const root = doc.documentElement;
+    if (!root.getAttribute('xmlns')) root.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    if (!root.getAttribute('xmlns:xlink')) root.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    const clipPath = doc.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+    clipPath.id = 'cutMask';
+    const elements = doc.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line');
+    elements.forEach(el => {
+      const clone = el.cloneNode(true) as SVGElement;
+      clone.removeAttribute('stroke');
+      clone.removeAttribute('stroke-width');
+      clone.removeAttribute('fill');
+      clipPath.appendChild(clone);
+    });
+    const defs = doc.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    defs.appendChild(clipPath);
+    root.insertBefore(defs, root.firstChild);
+    const g = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('clip-path', 'url(#cutMask)');
+    const image = doc.createElementNS('http://www.w3.org/2000/svg', 'image');
+    image.setAttribute('xlink:href', textureUrl);
+    image.setAttribute('width', String(width));
+    image.setAttribute('height', String(height));
+    image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+    g.appendChild(image);
+    // Clear original content and append masked group
+    while (root.lastChild && root.lastChild !== defs) {
+      root.removeChild(root.lastChild);
+    }
+    root.appendChild(g);
+    // Add red lines overlay if needed
+    if (redLines) {
+      const overlayG = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+      overlayG.setAttribute('opacity', '0.8');
+      elements.forEach(el => {
+        const clone = el.cloneNode(true) as SVGElement;
+        clone.setAttribute('fill', 'none');
+        clone.setAttribute('stroke', 'red');
+        clone.setAttribute('stroke-width', '0.5');
+        overlayG.appendChild(clone);
+      });
+      root.appendChild(overlayG);
+    }
+    return new XMLSerializer().serializeToString(root);
+  } catch (e) {
+    console.error("Failed to create masked texture SVG:", e);
+    return processSvgForCut(svgString, redLines ? 'red' : 'black'); // Fallback
+  }
 }

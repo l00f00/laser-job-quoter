@@ -18,13 +18,17 @@ import LoginPage from "@/pages/LoginPage";
 import { QuotePage } from "@/pages/QuotePage";
 import { AdminPage } from "@/pages/AdminPage";
 import FullPageLoader from "@/components/common/FullPageLoader";
-
 /**
  * Import global styles.
  */
 import "@/index.css";
 // Lazy load pages that are not critical for the initial render
 const QuotesListPage = lazy(() => import('@/pages/QuotesListPage'));
+const AdminMaterialsPage = lazy(() => import('@/pages/AdminMaterialsPage'));
+const AdminPricingPage = lazy(() => import('@/pages/AdminPricingPage'));
+const AdminStripePage = lazy(() => import('@/pages/AdminStripePage'));
+const AdminHelpCenterPage = lazy(() => import('@/pages/AdminHelpCenterPage'));
+const AdminSupportPage = lazy(() => import('@/pages/AdminSupportPage'));
 // Create a client
 const queryClient = new QueryClient();
 const rootEl = document.getElementById("root");
@@ -53,6 +57,11 @@ const App = () => {
               {/* Auth & Admin routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/materials" element={<AdminMaterialsPage />} />
+              <Route path="/admin/pricing" element={<AdminPricingPage />} />
+              <Route path="/admin/stripe" element={<AdminStripePage />} />
+              <Route path="/admin/help-center" element={<AdminHelpCenterPage />} />
+              <Route path="/admin/support" element={<AdminSupportPage />} />
               {/* Fallback: reuse HomePage for unmatched routes */}
               <Route path="*" element={<HomePage />} />
             </Routes>

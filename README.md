@@ -41,6 +41,30 @@ LuxQuote is a visually-rich, polished single-page web application for creating i
     - In the **Analytics** tab, observe the updated revenue and material stats.
     - In the **Payments** tab, view the payment status and link to the mock Stripe session.
 8.  **Verify No Type Errors**: Run `bun run build && tsc --noEmit` to confirm the project is type-safe.
+## Admin Features
+### Credentials
+- **Admin**: `admin@luxquote.com` / `admin123`
+### Dashboard Tabs
+- **Orders**: View/update orders, download CSV/SVG per row.
+- **Analytics**: Revenue/charts.
+- **Payments**: Status/sync.
+### Admin Tools (Sidebar if logged as admin)
+- **/admin/materials**: CRUD for materials.
+- **/admin/pricing**: Edit package multipliers/lead times.
+- **/admin/stripe**: Test secrets config.
+- **/admin/help-center**: Manage help articles.
+- **/admin/support**: View/resolve help requests.
+### Endpoints
+- **POST /api/help-requests**: `{message, quoteId?}` → HelpRequestEntity.
+- **/api/admin/materials**: GET/POST/PUT/:id/DELETE/:id (admin auth).
+- **/api/admin/articles**: Similar CRUD.
+- **/api/admin/support**: GET filtered help requests.
+- **/api/admin/pricing**: GET/PUT packages.
+- **/api/admin/stripe/test**: POST for validation.
+- **GET /api/quotes/:id**: Now includes `fileContent` for SVG.
+### User Features
+- **QuoteBuilder**: Scale slider (50-200%), cut masking.
+- **HelpButton**: Submits to `/api/help-requests` with `quoteId` if saved.
 ## Production Deployment
 Deploy to Cloudflare Workers for global edge performance.
 1.  **Login to Wrangler**: `wrangler login`
@@ -57,23 +81,9 @@ Deploy to Cloudflare Workers for global edge performance.
 4.  **Deploy**: `wrangler deploy`
 ## Production Notes
 ### Webhook Security
-The provided `/api/stripe/webhook` endpoint is a mock. For production, you must verify the Stripe signature to prevent fraudulent requests. In `worker/user-routes.ts`, you would implement:
-```typescript
-// Example of a secure webhook handler
-const signature = c.req.header('stripe-signature');
-const secret = c.env.STRIPE_WEBHOOK_SECRET;
-const body = await c.req.text();
-try {
-  const event = await stripe.webhooks.constructEvent(body, signature, secret);
-  // Handle event...
-} catch (err) {
-  return c.text('Webhook Error', 400);
-}
-```
+The provided `/api/stripe/webhook` endpoint is a mock. For production, you must verify the Stripe signature to prevent fraudulent requests.
 ### Scaling with D1
-The application uses Durable Objects for quote and order storage, which is great for individual object consistency. For larger-scale analytics and relational queries, migrating to Cloudflare D1 is recommended.
-- **Hybrid Model**: The app is built to support a hybrid DO + D1 model. If a `DB` binding is present in `wrangler.jsonc`, certain routes can be enhanced to use it.
-- **Full Migration**: For a full migration, you would write a one-time script to read all data from the `GlobalDurableObject` and `INSERT` it into your D1 tables. Afterwards, all entity methods (`create`, `list`, `patch`) in `worker/entities.ts` would be rewritten to use D1 queries exclusively.
+The application uses Durable Objects for quote and order storage. For larger-scale analytics and relational queries, migrating to Cloudflare D1 is recommended.
 ### Monitoring
 Leverage the Cloudflare dashboard for monitoring your application:
 - **Workers & Pages Analytics**: View request counts, CPU time, and invocation metrics.
