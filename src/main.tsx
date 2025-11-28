@@ -82,7 +82,21 @@ const App = () => {
   );
 };
 export default App;
-ReactDOM.createRoot(rootEl).render(
+/**
+ * Reuse a single React root across module reloads (HMR/dev) by storing it on
+ * window.__REACT_ROOT__. This prevents ReactDOM.createRoot from being called
+ * multiple times on the same container.
+ *
+ * An explicit check for the root element is already performed above; reuse
+ * that root instance when available.
+ */
+declare global {
+  interface Window { __REACT_ROOT__?: ReturnType<typeof ReactDOM.createRoot> }
+}
+if (!window.__REACT_ROOT__) {
+  window.__REACT_ROOT__ = ReactDOM.createRoot(rootEl);
+}
+window.__REACT_ROOT__.render(
   <React.StrictMode>
     <App />
   </React.StrictMode>
