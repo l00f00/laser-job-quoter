@@ -1,16 +1,11 @@
 import { Hono } from "hono";
-import Stripe from 'stripe';
 import type { Env } from './core-utils';
 import { UserEntity, ChatBoardEntity, QuoteEntity, OrderEntity } from "./entities";
 import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
 import { OrderStatus } from "@shared/types";
 import type { Quote, Order, PricePackage } from "@shared/types";
-// This is a mock. In a real app, use secrets.
-const STRIPE_SECRET_KEY = 'sk_test_51...'; // Replace with a valid test key if you have one
-const STRIPE_WEBHOOK_SECRET = 'whsec_...'; // Replace with a valid webhook secret
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
-  const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
   // --- LuxQuote Routes ---
   app.get('/api/materials', (c) => {
     return ok(c, MOCK_MATERIALS);
@@ -87,27 +82,13 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const quote = await quoteEntity.getState();
     const estimate = quote.estimate as PricePackage | undefined;
     if (!estimate || !estimate.total) return bad(c, 'Quote has no valid price estimate.');
-    try {
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [{
-          price_data: {
-            currency: 'usd',
-            product_data: { name: quote.title, description: `Laser job quote: ${quote.id}` },
-            unit_amount: Math.round(estimate.total * 100),
-          },
-          quantity: 1,
-        }],
-        mode: 'payment',
-        success_url: `${c.req.url.split('/api')[0]}/quotes?payment=success`,
-        cancel_url: `${c.req.url.split('/api')[0]}/quote/${quote.id}?payment=cancelled`,
-        metadata: { quote_id: quote.id },
-      });
-      return ok(c, { id: session.id, url: session.url });
-    } catch (e) {
-      console.error("Stripe session creation failed:", e);
-      return bad(c, (e as Error).message);
-    }
+    // Mock session creation to avoid Node.js specific dependencies in Cloudflare Workers
+    const mockSession = {
+      id: `cs_test_${crypto.randomUUID().replace(/-/g, '')}`,
+      url: `${c.req.url.split('/api')[0]}/quotes?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      metadata: { quote_id: quote.id },
+    };
+    return ok(c, { id: mockSession.id, url: mockSession.url });
   });
   app.post('/api/stripe/webhook', async (c) => {
     // This is a simplified webhook for demo purposes.

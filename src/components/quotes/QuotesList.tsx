@@ -84,6 +84,7 @@ export function QuotesList() {
               variants={itemVariants}
               whileHover={{ scale: 1.02, y: -4 }}
               transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+              layout
             >
               <Card className="flex flex-col h-full shadow-soft transition-shadow duration-200 hover:shadow-xl">
                 <CardHeader>

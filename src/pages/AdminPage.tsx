@@ -1,6 +1,6 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { HelpButton } from '@/components/HelpButton';
-import { Toaster } from '@/components/ui/sonner';
+import { Toaster, toast } from '@/components/ui/sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { mockAuth } from '@/lib/auth-utils';
@@ -12,14 +12,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertTriangle, ShieldCheck, Edit, BarChart, PieChartIcon, CreditCard } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
@@ -46,7 +45,16 @@ function OrdersTab() {
       toast.error('Failed to update status', { description: (e as Error).message });
     }
   };
-  if (isLoading) return <Skeleton className="h-64 w-full" />;
+  if (isLoading) return (
+    <Card>
+      <CardHeader><Skeleton className="h-8 w-1/4" /></CardHeader>
+      <CardContent className="space-y-2">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </CardContent>
+    </Card>
+  );
   if (error) return <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{(error as Error).message}</AlertDescription></Alert>;
   return (
     <>
@@ -57,18 +65,26 @@ function OrdersTab() {
             <Table>
               <TableHeader><TableRow><TableHead>Order ID</TableHead><TableHead>Quote ID</TableHead><TableHead>Status</TableHead><TableHead>Submitted</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
               <TableBody>
-                {orders?.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-mono text-xs">{order.id}</TableCell>
-                    <TableCell className="font-mono text-xs">{order.quoteId}</TableCell>
-                    <TableCell><Badge className={cn({ 'bg-green-100 text-green-800': order.status === 'paid', 'bg-yellow-100 text-yellow-800': order.status === 'pending', 'bg-blue-100 text-blue-800': order.status === 'shipped' })}>{order.status}</Badge></TableCell>
-                    <TableCell>{new Date(order.submittedAt).toLocaleString()}</TableCell>
-                    <TableCell className="space-x-2">
-                      <Button variant="outline" size="sm" asChild><Link to={`/quote/${order.quoteId}`}>View Quote</Link></Button>
-                      <Button variant="ghost" size="sm" onClick={() => { setEditingOrder(order); setNewStatus(order.status); }}><Edit className="h-4 w-4" /></Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                <AnimatePresence>
+                  {orders?.map((order, i) => (
+                    <motion.tr
+                      key={order.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="hover:bg-muted/50"
+                    >
+                      <TableCell className="font-mono text-xs">{order.id}</TableCell>
+                      <TableCell className="font-mono text-xs">{order.quoteId}</TableCell>
+                      <TableCell><Badge className={cn({ 'bg-green-100 text-green-800': order.status === 'paid', 'bg-yellow-100 text-yellow-800': order.status === 'pending', 'bg-blue-100 text-blue-800': order.status === 'shipped' })}>{order.status}</Badge></TableCell>
+                      <TableCell>{new Date(order.submittedAt).toLocaleString()}</TableCell>
+                      <TableCell className="space-x-2">
+                        <Button variant="outline" size="sm" asChild><Link to={`/quote/${order.quoteId}`}>View Quote</Link></Button>
+                        <Button variant="ghost" size="sm" onClick={() => { setEditingOrder(order); setNewStatus(order.status); }}><Edit className="h-4 w-4" /></Button>
+                      </TableCell>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
               </TableBody>
             </Table>
           </div>
@@ -98,8 +114,14 @@ function AnalyticsTab() {
   });
   const { data: materials } = useQuery<Material[]>({ queryKey: ['materials'], queryFn: () => api('/api/materials') });
   const materialsById = new Map(materials?.map(m => [m.id, m.name]));
-  const pieData = analytics?.topMaterials.map(m => ({ ...m, name: materialsById.get(m.name) || m.name }));
-  if (isLoading) return <Skeleton className="h-96 w-full" />;
+  const pieData = analytics?.topMaterials.map(m => ({ ...m, name: materialsById.get(m.name) || 'Unknown' }));
+  if (isLoading) return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <Card><CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader><CardContent><Skeleton className="h-12 w-3/4" /></CardContent></Card>
+      <Card><CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader><CardContent><Skeleton className="h-12 w-1/2" /></CardContent></Card>
+      <Card className="md:col-span-2"><CardHeader><Skeleton className="h-8 w-1/3" /></CardHeader><CardContent className="h-80"><Skeleton className="h-full w-full" /></CardContent></Card>
+    </div>
+  );
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <Card><CardHeader><CardTitle>Total Revenue</CardTitle></CardHeader><CardContent><p className="text-4xl font-bold">${analytics?.totalRevenue.toFixed(2)}</p></CardContent></Card>
@@ -147,7 +169,7 @@ export function AdminPage() {
             </Alert>
           ) : (
             <Tabs defaultValue="orders" className="w-full">
-              <TabsList className="grid w-full grid-cols-3"><TabsTrigger value="orders"><Edit className="mr-2 h-4 w-4" />Orders</TabsTrigger><TabsTrigger value="analytics"><BarChart className="mr-2 h-4 w-4" />Analytics</TabsTrigger><TabsTrigger value="payments"><CreditCard className="mr-2 h-4 w-4" />Payments</TabsTrigger></TabsList>
+              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3"><TabsTrigger value="orders"><Edit className="mr-2 h-4 w-4" />Orders</TabsTrigger><TabsTrigger value="analytics"><BarChart className="mr-2 h-4 w-4" />Analytics</TabsTrigger><TabsTrigger value="payments"><CreditCard className="mr-2 h-4 w-4" />Payments</TabsTrigger></TabsList>
               <TabsContent value="orders" className="mt-6"><OrdersTab /></TabsContent>
               <TabsContent value="analytics" className="mt-6"><AnalyticsTab /></TabsContent>
               <TabsContent value="payments" className="mt-6"><Card><CardHeader><CardTitle>Payments</CardTitle></CardHeader><CardContent><p className="text-muted-foreground">Stripe payment integration is active. View payment details in the Stripe Dashboard.</p></CardContent></Card></TabsContent>
