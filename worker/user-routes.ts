@@ -3,13 +3,19 @@
  * Migrate DO data externally: `wrangler d1 execute luxquote-db --file=migrate.sql` with INSERT SELECT.
  * Schema as documented in README.md.
  */
-import { Hono } from "hono";
+import { Hono, type Context, type Next } from "hono";
 import type { Env } from './core-utils';
 import { UserEntity, ChatBoardEntity, QuoteEntity, OrderEntity, MaterialEntity, ArticleEntity, HelpRequestEntity } from "./entities";
 import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
 import { OrderStatus, type LoginUser, type Quote, type Order, type PricePackage, type Material, type Article, type HelpRequest } from "@shared/types";
-const adminAuthMiddleware = async (c: any, next: any) => {
+type AppContext = {
+  Bindings: Env;
+  Variables: {
+    user: LoginUser;
+  };
+};
+const adminAuthMiddleware = async (c: Context<AppContext>, next: Next) => {
   const token = c.req.header('Authorization')?.replace('Bearer ', '');
   if (!token || !token.startsWith('mock_jwt_')) {
     return c.json({ success: false, error: 'Unauthorized' }, 401);
@@ -17,6 +23,9 @@ const adminAuthMiddleware = async (c: any, next: any) => {
   try {
     const userJson = atob(token.slice(9));
     const user: LoginUser = JSON.parse(userJson);
+    if (!user) {
+      return c.json({ success: false, error: 'Invalid token data' }, 401);
+    }
     if (user.role !== 'admin') {
       return c.json({ success: false, error: 'Admin access required' }, 403);
     }
@@ -26,7 +35,7 @@ const adminAuthMiddleware = async (c: any, next: any) => {
     return c.json({ success: false, error: 'Invalid token' }, 401);
   }
 };
-const userAuthMiddleware = async (c: any, next: any) => {
+const userAuthMiddleware = async (c: Context<AppContext>, next: Next) => {
   const token = c.req.header('Authorization')?.replace('Bearer ', '');
   if (!token || !token.startsWith('mock_jwt_')) {
     return c.json({ success: false, error: 'Unauthorized' }, 401);
@@ -34,13 +43,16 @@ const userAuthMiddleware = async (c: any, next: any) => {
   try {
     const userJson = atob(token.slice(9));
     const user: LoginUser = JSON.parse(userJson);
+    if (!user) {
+      return c.json({ success: false, error: 'Invalid token data' }, 401);
+    }
     c.set('user', user);
     await next();
   } catch (e) {
     return c.json({ success: false, error: 'Invalid token' }, 401);
   }
 };
-export function userRoutes(app: Hono<{ Bindings: Env }>) {
+export function userRoutes(app: Hono<AppContext>) {
   // --- Auth Routes ---
   app.post('/api/login', async (c) => {
     const { email, password } = await c.req.json<{ email?: string, password?: string }>();
@@ -65,7 +77,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     return ok(c, page.items);
   });
   app.post('/api/help-requests', userAuthMiddleware, async (c) => {
-    const user = c.get('user') as LoginUser;
+    const user = c.get('user');
     const { message, quoteId } = await c.req.json<{ message: string; quoteId?: string }>();
     if (!message) return bad(c, 'Message is required');
     const newRequest: HelpRequest = {
@@ -93,7 +105,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       return notFound(c, 'Quote not found');
     }
     const quote = await quoteEntity.getState();
-    // The thumbnail is already the base64 SVG, so we can use it as fileContent
     if (quote.thumbnail && quote.thumbnail.startsWith('data:image/svg+xml;base64,')) {
       quote.fileContent = quote.thumbnail;
     }
@@ -116,7 +127,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       physicalHeightMm: body.physicalHeightMm || 0,
       estimate: body.estimate,
       thumbnail: body.thumbnail,
-      fileContent: body.thumbnail, // Assuming thumbnail is the base64 svg
+      fileContent: body.thumbnail,
     };
     const created = await QuoteEntity.create(c.env, newQuote);
     return ok(c, created);
@@ -137,7 +148,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
   // --- Order & Stripe Routes ---
   app.post('/api/orders/stripe', userAuthMiddleware, async (c) => {
-    const user = c.get('user') as LoginUser;
+    const user = c.get('user');
     const { quoteId, quantity = 1 } = (await c.req.json()) as { quoteId: string, quantity?: number };
     if (!quoteId) return bad(c, 'quoteId is required');
     if (quantity < 1 || quantity > 100 || !Number.isInteger(quantity)) {
@@ -159,7 +170,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         payment_intent: `pi_mock_${crypto.randomUUID()}`,
       };
     } else {
-      // Stripe logic remains the same
+      // Production Stripe logic would go here
     }
     const newOrderData: Order = {
       id: `order_${crypto.randomUUID()}`,

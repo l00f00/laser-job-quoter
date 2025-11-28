@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { mockAuth } from '@/lib/auth-utils';
 import { api } from '@/lib/api-client';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+import { Skeleton } from '@/components/ui/skeleton';
 export default function AdminStripePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<'unknown' | 'connected' | 'failed'>('unknown');
@@ -32,9 +34,23 @@ export default function AdminStripePage() {
       setIsLoading(false);
     }
   };
+  if (isLoading) {
+    return (
+      <AppLayout container>
+        <div className="max-w-2xl mx-auto">
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </AppLayout>
+    );
+  }
   return (
     <AppLayout container>
-      <div className="max-w-2xl mx-auto">
+      <motion.div
+        className="max-w-2xl mx-auto"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold font-display">Stripe Configuration</h1>
           <p className="text-muted-foreground">Test your Stripe integration status.</p>
@@ -48,7 +64,9 @@ export default function AdminStripePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-between">
-            <Badge variant={status === 'connected' ? 'default' : 'secondary'} className={status === 'connected' ? 'bg-green-500 text-white' : ''}>
+            <Badge variant={status === 'connected' ? 'default' : status === 'failed' ? 'destructive' : 'secondary'} className={status === 'connected' ? 'bg-green-500 text-white' : ''}>
+              {status === 'connected' && <Check className="mr-1 h-3 w-3" />}
+              {status === 'failed' && <X className="mr-1 h-3 w-3" />}
               {status.charAt(0).toUpperCase() + status.slice(1)}
             </Badge>
             <Button onClick={handleTestConnection} disabled={isLoading}>
@@ -65,10 +83,11 @@ export default function AdminStripePage() {
             <code className="block bg-muted p-2 rounded-md my-2 text-sm font-mono">
               wrangler secret put STRIPE_SECRET_KEY
             </code>
-            This securely stores the secret without exposing it in your code.
+            This securely stores the secret without exposing it in your code. {' '}
+            <a href="https://developers.cloudflare.com/workers/configuration/secrets/" target="_blank" rel="noopener noreferrer" className="underline">Learn more about secrets</a>.
           </AlertDescription>
         </Alert>
-      </div>
+      </motion.div>
     </AppLayout>
   );
 }

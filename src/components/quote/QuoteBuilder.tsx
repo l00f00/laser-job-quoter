@@ -96,6 +96,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       setIsLoadingMetrics(false);
     }
   };
+  const isSvg = useMemo(() => (state.file?.type.includes('svg')) || (initialQuote?.thumbnail?.startsWith('data:image/svg+xml')), [state.file, initialQuote?.thumbnail]);
   const debouncedRecalc = useCallback((newWidth: number) => {
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     debounceTimeoutRef.current = setTimeout(async () => {
@@ -111,7 +112,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         }
       }
     }, 300);
-  }, [state.fileContent]);
+  }, [state.fileContent, isSvg]);
   const handleScaleChange = (value: number[]) => {
     const newScale = value[0];
     setState(s => ({ ...s, scalePercent: newScale }));
@@ -142,8 +143,8 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
     if (!state.material || !state.artworkMetrics || !pricePackages) { toast.error("Please complete all steps."); return; }
     setIsSaving(true);
     try {
-      const isSvg = state.file?.type.includes('svg') || initialQuote?.thumbnail?.startsWith('data:image/svg+xml');
-      const thumbnail = isSvg && state.fileContent ? `data:image/svg+xml;base64,${btoa(state.fileContent)}` : initialQuote?.thumbnail;
+      const isSvgFile = state.file?.type.includes('svg') || initialQuote?.thumbnail?.startsWith('data:image/svg+xml');
+      const thumbnail = isSvgFile && state.fileContent ? `data:image/svg+xml;base64,${btoa(state.fileContent)}` : initialQuote?.thumbnail;
       const quoteData: Partial<Quote> = {
         title: state.file?.name || initialQuote?.title || 'Untitled Quote',
         materialId: state.material.id,
@@ -170,7 +171,6 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       setIsSaving(false);
     }
   };
-  const isSvg = useMemo(() => (state.file?.type.includes('svg')) || (initialQuote?.thumbnail?.startsWith('data:image/svg+xml')), [state.file, initialQuote?.thumbnail]);
   const processedPreviewData = useMemo(() => {
     if (!state.fileContent || !state.artworkMetrics) return { type: 'none' };
     const toBase64 = (svgString: string) => `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
