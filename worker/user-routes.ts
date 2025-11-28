@@ -1,3 +1,8 @@
+/*
+ * D1 Integration: Assumes DB binding in wrangler.jsonc.
+ * Migrate DO data externally: `wrangler d1 execute luxquote-db --file=migrate.sql` with INSERT SELECT.
+ * Schema as documented in README.md.
+ */
 import { Hono } from "hono";
 import type { Env } from './core-utils';
 import { UserEntity, ChatBoardEntity, QuoteEntity, OrderEntity } from "./entities";
@@ -98,7 +103,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const quote = await quoteEntity.getState();
     const estimate = quote.estimate as PricePackage | undefined;
     if (!estimate || !estimate.total) return bad(c, 'Quote has no valid price estimate.');
-    // Mock session creation to avoid Node.js specific dependencies in Cloudflare Workers
     const mockSession = {
       id: `cs_test_${crypto.randomUUID().replace(/-/g, '')}`,
       url: `${c.req.url.split('/api')[0]}/quotes?payment=success&session_id={CHECKOUT_SESSION_ID}`,
@@ -107,14 +111,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     return ok(c, { id: mockSession.id, url: mockSession.url });
   });
   app.post('/api/stripe/webhook', async (c) => {
-    // This is a simplified webhook for demo purposes.
-    // A real implementation would verify the Stripe signature.
     const event = await c.req.json();
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       const quoteId = session.metadata.quote_id;
       if (quoteId) {
-        // Find order by quoteId
         const allOrders = (await OrderEntity.list(c.env)).items;
         const orderToUpdate = allOrders.find(o => o.quoteId === quoteId);
         if (orderToUpdate) {
@@ -128,6 +129,15 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
   // --- Admin Routes ---
   app.get('/api/admin/orders', async (c) => {
+    if (c.env.DB) {
+      try {
+        const { results } = await c.env.DB.prepare('SELECT * FROM orders ORDER BY submittedAt DESC').all<Order>();
+        return ok(c, results);
+      } catch (e) {
+        console.error("D1 query for orders failed:", e);
+        // Fallback to DO
+      }
+    }
     await OrderEntity.ensureSeed(c.env);
     const page = await OrderEntity.list(c.env);
     const sorted = page.items.sort((a, b) => b.submittedAt - a.submittedAt);
@@ -147,6 +157,22 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     return ok(c, await orderEntity.getState());
   });
   app.get('/api/admin/analytics', async (c) => {
+    if (c.env.DB) {
+      try {
+        const revenueResult = await c.env.DB.prepare("SELECT SUM(CAST(json_extract(q.estimate, '$.total') AS REAL)) as total FROM orders o JOIN quotes q ON o.quote_id = q.id WHERE o.status = ?1").bind('paid').first<{ total: number }>();
+        const orderCountResult = await c.env.DB.prepare("SELECT COUNT(*) as count FROM orders").first<{ count: number }>();
+        const materialsResult = await c.env.DB.prepare("SELECT materialId as name, COUNT(*) as value FROM quotes GROUP BY materialId ORDER BY value DESC LIMIT 5").all<{ name: string, value: number }>();
+        return ok(c, {
+          totalRevenue: revenueResult?.total || 0,
+          orderCount: orderCountResult?.count || 0,
+          topMaterials: materialsResult.results || [],
+        });
+      } catch (e) {
+        console.error("D1 analytics query failed:", e);
+        // Fallback to DO
+      }
+    }
+    // DO-based fallback analytics
     const ordersPage = await OrderEntity.list(c.env);
     const quotesPage = await QuoteEntity.list(c.env);
     const quotesById = new Map(quotesPage.items.map(q => [q.id, q]));

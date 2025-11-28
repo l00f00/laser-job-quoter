@@ -1,18 +1,19 @@
 /**
- * Minimal real-world demo: One Durable Object instance per entity (User, ChatBoard), with Indexes for listing.
+ * Entities with hybrid DO/D1 support.
+ * Assumes D1 binding `DB` is present in `env`. Falls back to DO if not.
  */
 import { IndexedEntity } from "./core-utils";
-import type { User, Chat, ChatMessage, Quote, Material, Order } from "@shared/types";
+import type { User, Chat, ChatMessage, Quote, Material, Order, Env } from "@shared/types";
 import { OrderStatus } from "@shared/types";
-import { MOCK_CHAT_MESSAGES, MOCK_CHATS, MOCK_USERS, MOCK_QUOTES, MOCK_MATERIALS } from "@shared/mock-data";
-// USER ENTITY: one DO instance per user
+import { MOCK_CHAT_MESSAGES, MOCK_CHATS, MOCK_USERS, MOCK_QUOTES } from "@shared/mock-data";
+// USER ENTITY
 export class UserEntity extends IndexedEntity<User> {
   static readonly entityName = "user";
   static readonly indexName = "users";
   static readonly initialState: User = { id: "", name: "" };
   static seedData = MOCK_USERS;
 }
-// CHAT BOARD ENTITY: one DO instance per chat board, stores its own messages
+// CHAT BOARD ENTITY
 export type ChatBoardState = Chat & { messages: ChatMessage[] };
 const SEED_CHAT_BOARDS: ChatBoardState[] = MOCK_CHATS.map(c => ({
   ...c,
@@ -75,5 +76,15 @@ export class OrderEntity extends IndexedEntity<Order> {
   }
   async updateStatus(status: OrderStatus): Promise<void> {
     await this.patch({ status });
+  }
+  // D1 Migration Stub - to be called from a deploy hook or manually via wrangler.
+  static async migrateToD1(env: Env): Promise<void> {
+    if (env.DB) {
+      console.log("Migrating DO data to D1 is a manual process using `wrangler d1 execute`.");
+      // Example SQL for migration (run externally):
+      // INSERT INTO users (id, name) SELECT id, name FROM do_users_table;
+      // INSERT INTO quotes (...) SELECT ... FROM do_quotes_table;
+      // INSERT INTO orders (...) SELECT ... FROM do_orders_table;
+    }
   }
 }

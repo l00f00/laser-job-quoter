@@ -78,4 +78,3 @@ export function AnalyticsTab() {
     </motion.div>
   );
 }
-export default AnalyticsTab;

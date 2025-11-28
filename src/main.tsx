@@ -1,42 +1,51 @@
 /**
  * Main application entrypoint
  *
- * Added route for /login which renders the modal-only LoginPage.
- *
- * Keep this file minimal and consistent with the project's React Router v6 setup.
+ * Wraps the application in QueryClientProvider to enable @tanstack/react-query.
+ * Defines all application routes using React Router v6.
  */
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 /**
  * Import application pages.
- * - HomePage and DemoPage are existing pages in the template.
- * - LoginPage is the new page we added which renders the LoginModal.
  */
 import { HomePage } from "@/pages/HomePage";
 import { DemoPage } from "@/pages/DemoPage";
 import LoginPage from "@/pages/LoginPage";
+import { QuotePage } from "@/pages/QuotePage";
+import { QuotesListPage } from "@/pages/QuotesListPage";
+import { AdminPage } from "@/pages/AdminPage";
 /**
- * Import global styles. Adjust path if your project uses a different stylesheet entry.
- * Most Vite + Tailwind templates include an index.css at the project src root.
+ * Import global styles.
  */
 import "@/index.css";
+// Create a client
+const queryClient = new QueryClient();
 const rootEl = document.getElementById("root");
 if (!rootEl) {
   throw new Error("Root element not found. Make sure there is an element with id='root' in index.html");
 }
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <Routes>
-        {/* Main application routes */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/demo" element={<DemoPage />} />
-        {/* Login modal-only route */}
-        <Route path="/login" element={<LoginPage />} />
-        {/* Fallback: reuse HomePage for unmatched routes (adjust if you have a NotFound page) */}
-        <Route path="*" element={<HomePage />} />
-      </Routes>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          {/* Main application routes */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/demo" element={<DemoPage />} />
+          {/* Quote routes */}
+          <Route path="/quote" element={<QuotePage />} />
+          <Route path="/quote/:id" element={<QuotePage />} />
+          <Route path="/quotes" element={<QuotesListPage />} />
+          {/* Auth & Admin routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          {/* Fallback: reuse HomePage for unmatched routes */}
+          <Route path="*" element={<HomePage />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   </React.StrictMode>
 );

@@ -8,42 +8,34 @@ LuxQuote is a visually-rich, polished single-page web application for creating i
 - **Job Type Flexibility**: Toggle between engraving, cutting, or both, with automatic cost calculations based on area, length, or coverage.
 - **Pricing Packages**: Choose from Economy, Standard, or Express options with estimated lead times and adjustable speed factors.
 - **Help & Support**: Floating help modal with manufacturing tips, constraints, and a form to request human review via backend submission.
-- **Saved Quotes**: Persist and list quotes with thumbnails, quick actions (duplicate, export, help), and mock persistence using Durable Objects.
+- **Saved Quotes & Editing**: Persist and list quotes with thumbnails, quick actions (duplicate, export, edit), and persistence using Durable Objects.
+- **Admin Dashboard**: A role-protected area to manage orders, view analytics, and oversee payments.
 - **Responsive & Accessible**: Mobile-first design with smooth animations, micro-interactions, and full accessibility compliance.
-- **Client-Side Estimator**: Heavy computation (metrics extraction, pricing) happens in the browser for instant feedback; backend handles persistence.
-Built with obsessive attention to visual excellence, LuxQuote delivers a delightful user experience for laser fabrication quoting.
 ## Technology Stack
-- **Frontend**: React 18, TypeScript, Tailwind CSS v3, shadcn/ui (Radix primitives), Framer Motion (animations), Zustand (state management), React Router, Sonner (toasts), Recharts (charts).
-- **Backend**: Cloudflare Workers, Hono (routing), Durable Objects (persistence via single GlobalDurableObject).
-- **Utilities**: Lucide React (icons), @tanstack/react-query (data fetching), Zod (validation), Immer (immutable updates).
-- **Build & Dev**: Vite, Bun (package manager), Wrangler (Cloudflare deployment).
-- **No Additional Dependencies**: Strictly uses preconfigured packages; no external services beyond Cloudflare ecosystem.
+- **Frontend**: React 18, TypeScript, Tailwind CSS v3, shadcn/ui, Framer Motion, Zustand, React Router, Sonner, Recharts.
+- **Backend**: Cloudflare Workers, Hono, Durable Objects, Cloudflare D1 (hybrid model).
+- **Utilities**: Lucide React, @tanstack/react-query, Zod, Immer.
+- **Build & Dev**: Vite, Bun, Wrangler.
 ## Quick Start
 ### Prerequisites
-- Node.js (v18+), but we recommend using Bun for faster installs and runs.
-- Cloudflare account (free tier sufficient for development).
+- Node.js (v18+), but we recommend using Bun.
+- Cloudflare account.
 - Wrangler CLI installed: `bun add -g wrangler`.
 ### Installation
-1. Clone the repository:
-   ```
-   git clone <your-repo-url>
-   cd luxquote
-   ```
-2. Install dependencies using Bun:
-   ```
-   bun install
-   ```
-3. Generate TypeScript types for Cloudflare bindings:
-   ```
-   bun run cf-typegen
-   ```
-## Demo Logins
+1. Clone the repository: `git clone <your-repo-url>`
+2. Install dependencies: `bun install`
+3. Generate types: `bun run cf-typegen`
+### Local Development
+1. Start the frontend dev server: `bun run dev`
+2. In a separate terminal, start the Cloudflare Worker: `wrangler dev`
+3. Open `http://localhost:3000` in your browser.
+## Authentication
 LuxQuote uses mock authentication for demo purposes.
 ### Credentials
 - **User**: `email: demo@luxquote.com`, `password: demo123` (role: user)
 - **Admin**: `email: admin@luxquote.com`, `password: admin123` (role: admin)
 ### API Login
-You can programmatically log in by sending a POST request to `/api/login`.
+Log in programmatically by sending a POST request to `/api/login`.
 **Request:**
 ```json
 {
@@ -66,90 +58,69 @@ You can programmatically log in by sending a POST request to `/api/login`.
   }
 }
 ```
-**Error Response:**
-```json
-{
-  "success": false,
-  "error": "Invalid credentials"
-}
-```
-### Admin Access
-Navigate to `/admin` after logging in with an admin account. This page is role-protected and will show an "Access Denied" message for non-admin users.
-### Testing Flow
-1.  **Login** using the modal that appears when you try to save a quote, or by navigating to `/login`.
-2.  **Create a quote** at `/quote`. Upload a design, select materials, and save it.
-3.  **View your saved quotes** at `/quotes`. You can edit, duplicate, or export them.
-4.  **Proceed to checkout** with the mock Stripe integration from the quote builder page.
-5.  **As an admin**, go to `/admin` to view all orders and analytics, and update order statuses.
-Tokens are stored in `localStorage` for session persistence. Logging out will clear the session.
-### Local Development
-1. Start the development server:
-   ```
-   bun run dev
-   ```
-   The app will be available at `http://localhost:3000` (or the port specified in your environment).
-2. In a separate terminal, start the Cloudflare Worker (for API endpoints):
-   ```
-   bun run dev:worker
-   ```
-   Or deploy to preview: `wrangler dev`.
-3. Open `http://localhost:3000` in your browser. The app includes a hero landing page and navigates to the Quote Builder.
-### Usage Examples
-- **Create a Quote**:
-  1. Click "Start a Quote" on the home page.
-  2. Upload an image or SVG via drag-and-drop.
-  3. Select material and thickness from the sidebar.
-  4. Toggle job type (engrave/cut/both) and adjust physical size.
-  5. View live pricing packages in the right panel.
-  6. Click "Request Quote" to save or "Ask for Help" for support.
-- **View Saved Quotes**:
-  Navigate to the Quotes List page to see thumbnails, prices, and actions like duplicate or export (CSV/PDF).
-- **Help Modal**:
-  Click the floating help button to access tips, constraints, and submit a support request (posts to `/api/quotes/help`).
-All interactions are client-side for estimates; persistence uses `/api/quotes` endpoints.
-## Development Instructions
-### Project Structure
-- `src/`: React frontend (pages, components, hooks, lib).
-- `worker/`: Cloudflare Worker backend (routes in `user-routes.ts`, entities in `entities.ts`).
-- `shared/`: Shared types and mock data.
-- Preinstalled shadcn/ui components in `src/components/ui/*`.
-### Adding Features
-- **Frontend**: Extend `src/pages/` for new views (e.g., QuoteBuilder.tsx). Use Zustand for local state (primitive selectors only to avoid loops). Import shadcn components from `@/components/ui/*`.
-- **Backend**: Add routes in `worker/user-routes.ts` using entity patterns (e.g., extend `IndexedEntity` for QuoteEntity). Use `ApiResponse<T>` for all responses.
-- **State Management**: Follow Zustand rules—no object selectors, use individual primitives and `useMemo` for derived values.
-- **Styling**: Tailwind v3-safe; use utilities from `tailwind.config.js` (custom colors: orange #F58125, indigo #6366F1, neutral #111827).
-- **Testing**: Lint with `bun run lint`. No e2e tests; manual verification recommended.
-- **Avoid Infinite Loops**: No setState in render; stable dependencies in effects; primitive selectors in Zustand.
-### Environment Variables
-No custom env vars needed for local dev. For production, set via Wrangler secrets if extending (e.g., Stripe keys in Phase 3).
+Tokens are stored in `localStorage` (`luxquote_auth_token`, `luxquote_user`) for session persistence.
+## Admin Dashboard
+The admin dashboard is a role-protected area for managing the application.
+- **Access**: Navigate to `/admin` after logging in with an admin account. Non-admin users will see an "Access Denied" message.
+- **Features**:
+  - **Orders Tab**: View a table of all submitted orders. You can edit the status of each order (e.g., from `pending` to `processing` or `shipped`).
+  - **Analytics Tab**: View key metrics like total revenue and total order count. A pie chart visualizes the most popular materials used in quotes.
+  - **Payments Tab**: See a list of orders with their payment status and links to the corresponding Stripe payment details.
+## Quote Editing
+Saved quotes can be easily modified.
+1.  Navigate to `/quotes` to see your list of saved quotes.
+2.  Click the "Edit" button on any quote card.
+3.  This will take you to `/quote/:id`, where the Quote Builder will be pre-filled with all the data from that quote.
+4.  You can change the material, job type, or even upload a new design.
+5.  Click "Update Quote" to save your changes via a `PUT` request to `/api/quotes/:id`.
+## Backend Persistence (Hybrid DO + D1)
+The application uses a hybrid model for persistence, leveraging both Durable Objects (DO) for high-frequency writes and D1 for relational queries and analytics.
+- **Durable Objects**: Used for creating and updating individual quotes and orders, providing strong consistency per object.
+- **Cloudflare D1**: A SQL database used for listing orders and running analytical queries across all data, which is difficult with DOs alone.
+### D1 Setup (Manual)
+To enable D1-powered features, you need to set up a D1 database and bind it to the worker.
+1.  **Create the D1 Database**:
+    ```bash
+    wrangler d1 create luxquote-db
+    ```
+2.  **Bind the Database in `wrangler.jsonc`**:
+    Add the following to your `wrangler.jsonc` file. Replace `<YOUR_DATABASE_ID>` with the ID from the previous step.
+    ```json
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "luxquote-db",
+        "database_id": "<YOUR_DATABASE_ID>"
+      }
+    ]
+    ```
+3.  **Create Schema**:
+    Create a file `schema.sql` and run `wrangler d1 execute luxquote-db --file=schema.sql`.
+    ```sql
+    -- schema.sql
+    CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE, name TEXT, role TEXT);
+    CREATE TABLE quotes (id TEXT PRIMARY KEY, user_id TEXT, title TEXT, material_id TEXT, thickness_mm REAL, job_type TEXT, physical_width_mm REAL, physical_height_mm REAL, estimate TEXT, thumbnail TEXT, status TEXT, created_at INTEGER, FOREIGN KEY(user_id) REFERENCES users(id));
+    CREATE TABLE orders (id TEXT PRIMARY KEY, quote_id TEXT, user_id TEXT, status TEXT, submitted_at INTEGER, payment_status TEXT, stripe_session_id TEXT, payment_intent_id TEXT, FOREIGN KEY(quote_id) REFERENCES quotes(id), FOREIGN KEY(user_id) REFERENCES users(id));
+    ```
+4.  **Migrate Data (Optional)**:
+    To move existing data from DOs to D1, you would need a custom script to read from DOs and `INSERT` into D1.
+## Stripe Integration
+- **Checkout**: Clicking "Pay with Stripe" sends a POST request to `/api/orders/stripe`, which creates a mock Stripe Checkout session and redirects the user.
+- **Webhook**: A mock webhook endpoint at `/api/stripe/webhook` listens for `checkout.session.completed` events to update an order's status to `paid`.
+## Testing the Application
+1.  **Login as User**: Use `demo@luxquote.com` / `demo123`.
+2.  **Create a Quote**: Go to `/quote`, upload a design, select a material, and click "Save Quote".
+3.  **View Saved Quotes**: Navigate to `/quotes` to see your saved project.
+4.  **Edit a Quote**: Click "Edit" on the quote card, make a change, and click "Update Quote".
+5.  **Checkout**: From the quote builder, click "Pay with Stripe" to simulate the checkout flow.
+6.  **Login as Admin**: Log out and log back in with `admin@luxquote.com` / `admin123`.
+7.  **Admin View**: Go to `/admin`.
+    - In the **Orders** tab, find the order you created and change its status.
+    - In the **Analytics** tab, observe the updated revenue and material stats.
+    - In the **Payments** tab, view the payment status.
 ## Deployment
-Deploy to Cloudflare Workers for global edge performance. The template is preconfigured.
-1. Login to Wrangler:
-   ```
-   wrangler login
-   ```
-2. Build the project:
-   ```
-   bun run build
-   ```
-3. Deploy:
-   ```
-   bun run deploy
-   ```
-   Or use `wrangler deploy` directly.
-The frontend assets are served as a static SPA, with API routes handled by the Worker. Preview deployments are automatic via Wrangler.
-For custom domains or advanced config, edit `wrangler.jsonc` (but avoid modifying bindings/migrations).
+Deploy to Cloudflare Workers for global edge performance.
+1.  Login to Wrangler: `wrangler login`
+2.  Build the project: `bun run build`
+3.  Deploy: `wrangler deploy`
 [![[cloudflarebutton]]](https://workers.cloudflare.com)
-## Contributing
-1. Fork the repo and create a feature branch.
-2. Install dependencies with Bun and run `bun run dev`.
-3. Make changes, lint (`bun run lint`), and test locally.
-4. Commit with clear messages and open a PR.
-Focus on visual polish, responsiveness, and avoiding runtime errors (e.g., no update depth exceeded).
-## License
-MIT License. See [LICENSE](LICENSE) for details.
-## Support
-- Issues: Open a GitHub issue for bugs or features.
-- Help Modal: In-app support requests post to backend for human review.
-- Cloudflare Docs: Refer to Workers and Durable Objects documentation for backend extensions.
-Built with ❤️ by Cloudflare's rapid development team.
