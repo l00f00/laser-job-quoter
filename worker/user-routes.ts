@@ -74,7 +74,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     if (!authHeader) return c.json({ success: false, error: 'Unauthorized' }, 401);
     await OrderEntity.ensureSeed(c.env);
     const page = await OrderEntity.list(c.env);
-    const sorted = page.items.sort((a, b) => b.submittedAt - a.createdAt);
+    const sorted = page.items.sort((a, b) => b.submittedAt - a.submittedAt);
     return ok(c, sorted);
   });
   // --- Template Demo Routes (can be removed later) ---

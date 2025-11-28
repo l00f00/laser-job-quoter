@@ -77,8 +77,12 @@ export function getSvgMetrics(svgString: string, physicalWidthMm: number): Promi
     try {
       const parser = new DOMParser();
       const doc = parser.parseFromString(svgString, 'image/svg+xml');
-      const svg = doc.documentElement as SVGSVGElement;
-      if (!svg || svg.tagName.toLowerCase() !== 'svg' || doc.querySelector('parsererror')) {
+      const svgElement = doc.querySelector('svg');
+      if (!svgElement) {
+        throw new Error('No SVG element found in document');
+      }
+      const svg = svgElement as SVGSVGElement;
+      if (doc.querySelector('parsererror')) {
         throw new Error('Invalid or malformed SVG file');
       }
       svg.style.position = 'absolute';
