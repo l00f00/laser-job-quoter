@@ -24,7 +24,7 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import html2canvas from 'html2canvas';
 import { saveAs } from 'file-saver';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';interface QuoteBuilderProps {id?: string | number;[key: string]: unknown;}
 type QuoteState = {
   file?: File;
   fileContent?: string;
@@ -40,7 +40,7 @@ const blendModes: Record<string, string> = {
   'normal': '',
   'light-etch': 'opacity-75 mix-blend-multiply',
   'deep-engrave': 'opacity-100 mix-blend-multiply contrast-125',
-  'color-burn': 'mix-blend-color-burn',
+  'color-burn': 'mix-blend-color-burn'
 };
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
 const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
@@ -65,16 +65,16 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
   }, []);
   useEffect(() => {
     if (editMode && initialQuote && materials) {
-      const material = materials.find(m => m.id === initialQuote.materialId);
-      const fileContent = initialQuote.fileContent && initialQuote.fileContent.startsWith('data:image/svg+xml;base64,')
-        ? atob(initialQuote.fileContent.split(',')[1])
-        : undefined;
+      const material = materials.find((m) => m.id === initialQuote.materialId);
+      const fileContent = initialQuote.fileContent && initialQuote.fileContent.startsWith('data:image/svg+xml;base64,') ?
+      atob(initialQuote.fileContent.split(',')[1]) :
+      undefined;
       const metrics = {
         widthMm: initialQuote.physicalWidthMm,
         heightMm: initialQuote.physicalHeightMm,
-        cutLengthMm: 0, engraveAreaSqMm: 0, pathComplexity: 0, aspectRatio: 1,
+        cutLengthMm: 0, engraveAreaSqMm: 0, pathComplexity: 0, aspectRatio: 1
       };
-      setState(s => ({
+      setState((s) => ({
         ...s,
         jobType: initialQuote.jobType,
         material,
@@ -82,13 +82,13 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         savedQuoteId: initialQuote.id,
         fileContent,
         artworkMetrics: metrics,
-        initialMetrics: metrics,
+        initialMetrics: metrics
       }));
       if (fileContent) {
         setIsLoadingMetrics(true);
-        getSvgMetrics(fileContent, initialQuote.physicalWidthMm).then(fullMetrics => {
-          setState(s => ({ ...s, artworkMetrics: fullMetrics, initialMetrics: fullMetrics }));
-        }).catch(err => {
+        getSvgMetrics(fileContent, initialQuote.physicalWidthMm).then((fullMetrics) => {
+          setState((s) => ({ ...s, artworkMetrics: fullMetrics, initialMetrics: fullMetrics }));
+        }).catch((err) => {
           toast.error("Failed to re-analyze artwork", { description: err.message });
         }).finally(() => setIsLoadingMetrics(false));
       }
@@ -97,23 +97,23 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
   const handleFileAccepted = async (file: File, content: string, physicalWidthMm: number) => {
     setIsLoadingMetrics(true);
     setManufacturabilityIssues([]);
-    setState(s => ({ ...s, file, fileContent: content, artworkMetrics: undefined, initialMetrics: undefined, scalePercent: 100 }));
+    setState((s) => ({ ...s, file, fileContent: content, artworkMetrics: undefined, initialMetrics: undefined, scalePercent: 100 }));
     try {
       if (file.type.includes('svg')) {
         const metrics = await getSvgMetrics(content, physicalWidthMm);
-        setState(s => ({ ...s, artworkMetrics: metrics, initialMetrics: metrics }));
+        setState((s) => ({ ...s, artworkMetrics: metrics, initialMetrics: metrics }));
         toast.success('Artwork analyzed successfully!');
       } else {
-        // Raster logic
+
         const metrics = {
-            widthMm: physicalWidthMm,
-            heightMm: physicalWidthMm, // Assuming square for now, needs aspect ratio from image
-            cutLengthMm: 0,
-            engraveAreaSqMm: physicalWidthMm * physicalWidthMm,
-            pathComplexity: 1,
-            aspectRatio: 1,
-        }
-        setState(s => ({ ...s, artworkMetrics: metrics, initialMetrics: metrics }));
+          widthMm: physicalWidthMm,
+          heightMm: physicalWidthMm,
+          cutLengthMm: 0,
+          engraveAreaSqMm: physicalWidthMm * physicalWidthMm,
+          pathComplexity: 1,
+          aspectRatio: 1
+        };
+        setState((s) => ({ ...s, artworkMetrics: metrics, initialMetrics: metrics }));
       }
     } catch (error) {
       toast.error('Failed to analyze artwork', { description: (error as Error).message });
@@ -121,7 +121,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       setIsLoadingMetrics(false);
     }
   };
-  const isSvg = useMemo(() => (state.file?.type.includes('svg')) || (initialQuote?.thumbnail?.startsWith('data:image/svg+xml')), [state.file, initialQuote?.thumbnail]);
+  const isSvg = useMemo(() => state.file?.type.includes('svg') || initialQuote?.thumbnail?.startsWith('data:image/svg+xml'), [state.file, initialQuote?.thumbnail]);
   const debouncedRecalc = useCallback((newWidth: number) => {
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     debounceTimeoutRef.current = setTimeout(async () => {
@@ -129,7 +129,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         setIsLoadingMetrics(true);
         try {
           const newMetrics = await getSvgMetrics(state.fileContent, newWidth);
-          setState(s => ({ ...s, artworkMetrics: newMetrics }));
+          setState((s) => ({ ...s, artworkMetrics: newMetrics }));
         } catch (e) {
           toast.error("Failed to recalculate metrics.");
         } finally {
@@ -140,12 +140,12 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
   }, [state.fileContent, isSvg]);
   const handleScaleChange = (value: number[]) => {
     const newScale = value[0];
-    setState(s => ({ ...s, scalePercent: newScale }));
+    setState((s) => ({ ...s, scalePercent: newScale }));
     if (state.initialMetrics) {
       const factor = newScale / 100;
       const newWidth = state.initialMetrics.widthMm * factor;
       const newHeight = state.initialMetrics.heightMm * factor;
-      setState(s => ({ ...s, artworkMetrics: { ...s.artworkMetrics!, widthMm: newWidth, heightMm: newHeight } }));
+      setState((s) => ({ ...s, artworkMetrics: { ...s.artworkMetrics!, widthMm: newWidth, heightMm: newHeight } }));
       debouncedRecalc(newWidth);
     }
   };
@@ -160,12 +160,12 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
     return calculateEstimate(state.artworkMetrics, {
       material: state.material,
       thicknessMm: state.thicknessMm,
-      jobType: state.jobType,
+      jobType: state.jobType
     });
   }, [state.artworkMetrics, state.material, state.thicknessMm, state.jobType]);
   const handleSaveQuote = async (selectedPackage: PricePackage) => {
-    if (!mockAuth.isAuthenticated()) { setIsLoginModalOpen(true); return; }
-    if (!state.material || !state.artworkMetrics || !pricePackages) { toast.error("Please complete all steps."); return; }
+    if (!mockAuth.isAuthenticated()) {setIsLoginModalOpen(true);return;}
+    if (!state.material || !state.artworkMetrics || !pricePackages) {toast.error("Please complete all steps.");return;}
     setIsSaving(true);
     try {
       const isSvgFile = state.file?.type.includes('svg') || initialQuote?.thumbnail?.startsWith('data:image/svg+xml');
@@ -179,15 +179,15 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         physicalHeightMm: state.artworkMetrics.heightMm,
         estimate: selectedPackage,
         thumbnail,
-        fileContent: thumbnail,
+        fileContent: thumbnail
       };
       if (editMode && state.savedQuoteId) {
         const updatedQuote = await api<Quote>(`/api/quotes/${state.savedQuoteId}`, { method: 'PUT', body: JSON.stringify(quoteData) });
-        setState(s => ({ ...s, savedQuoteId: updatedQuote.id }));
+        setState((s) => ({ ...s, savedQuoteId: updatedQuote.id }));
         toast.success('Quote updated successfully!');
       } else {
         const savedQuote = await api<Quote>('/api/quotes', { method: 'POST', body: JSON.stringify(quoteData) });
-        setState(s => ({ ...s, savedQuoteId: savedQuote.id }));
+        setState((s) => ({ ...s, savedQuoteId: savedQuote.id }));
         toast.success('Quote saved!');
       }
     } catch (error) {
@@ -210,7 +210,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
   }, [state.fileContent, state.artworkMetrics, state.jobType, state.material, redLines, maskingMode]);
   const handleExport = () => {
     if (previewRef.current) {
-      html2canvas(previewRef.current, { backgroundColor: null }).then(canvas => {
+      html2canvas(previewRef.current, { backgroundColor: null }).then((canvas) => {
         saveAs(canvas.toDataURL('image/png'), 'luxquote-preview.png');
       });
     }
@@ -221,25 +221,25 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       <motion.div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 lg:gap-8" variants={containerVariants} initial="hidden" animate="visible">
         <div className="lg:col-span-3 space-y-8">
           <motion.div layout variants={itemVariants}>
-            <Card><CardHeader><CardTitle>1. Select Material</CardTitle></CardHeader><CardContent><MaterialSelector selectedMaterialId={state.material?.id} onSelectMaterial={(m) => setState(s => ({ ...s, material: m, thicknessMm: m.thicknessesMm[0] }))} /></CardContent></Card>
+            <Card><CardHeader><CardTitle>1. Select Material</CardTitle></CardHeader><CardContent><MaterialSelector selectedMaterialId={state.material?.id} onSelectMaterial={(m) => setState((s) => ({ ...s, material: m, thicknessMm: m.thicknessesMm[0] }))} /></CardContent></Card>
           </motion.div>
-          {state.material && (
-            <motion.div layout variants={itemVariants}>
+          {state.material &&
+          <motion.div layout variants={itemVariants}>
               <Card><CardHeader><CardTitle>2. Job Options</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
-                  <div><Label>Job Type</Label><ToggleGroup type="single" value={state.jobType} onValueChange={(v) => { if (v) setState(s => ({ ...s, jobType: v as any })) }} className="grid grid-cols-3 mt-2"><ToggleGroupItem value="cut"><Scissors className="h-4 w-4 mr-2" />Cut</ToggleGroupItem><ToggleGroupItem value="engrave"><Brush className="h-4 w-4 mr-2" />Engrave</ToggleGroupItem><ToggleGroupItem value="both"><Layers className="h-4 w-4 mr-2" />Both</ToggleGroupItem></ToggleGroup></div>
-                  <div><Label>Thickness: {state.thicknessMm}mm</Label><Slider value={[state.thicknessMm || state.material.thicknessesMm[0]]} onValueChange={([val]) => setState(s => ({ ...s, thicknessMm: val }))} min={state.material.thicknessesMm[0]} max={state.material.thicknessesMm[state.material.thicknessesMm.length - 1]} step={state.material.thicknessesMm.length > 1 ? state.material.thicknessesMm[1] - state.material.thicknessesMm[0] : 1} className="mt-2" /></div>
+                  <div><Label>Job Type</Label><ToggleGroup type="single" value={state.jobType} onValueChange={(v) => {if (v) setState((s) => ({ ...s, jobType: v as any }));}} className="grid grid-cols-3 mt-2"><ToggleGroupItem value="cut"><Scissors className="h-4 w-4 mr-2" />Cut</ToggleGroupItem><ToggleGroupItem value="engrave"><Brush className="h-4 w-4 mr-2" />Engrave</ToggleGroupItem><ToggleGroupItem value="both"><Layers className="h-4 w-4 mr-2" />Both</ToggleGroupItem></ToggleGroup></div>
+                  <div><Label>Thickness: {state.thicknessMm}mm</Label><Slider value={[state.thicknessMm || state.material.thicknessesMm[0]]} onValueChange={([val]) => setState((s) => ({ ...s, thicknessMm: val }))} min={state.material.thicknessesMm[0]} max={state.material.thicknessesMm[state.material.thicknessesMm.length - 1]} step={state.material.thicknessesMm.length > 1 ? state.material.thicknessesMm[1] - state.material.thicknessesMm[0] : 1} className="mt-2" /></div>
                 </CardContent>
               </Card>
             </motion.div>
-          )}
+          }
         </div>
         <div className="lg:col-span-6 space-y-8">
           <motion.div layout variants={itemVariants}>
             <Card><CardHeader><CardTitle>3. Upload Artwork</CardTitle></CardHeader><CardContent>{isLoadingMetrics ? <Skeleton className="h-64 w-full" /> : <UploadDropzone onFileAccepted={handleFileAccepted} />}</CardContent></Card>
           </motion.div>
-          {state.fileContent && (
-            <motion.div layout variants={itemVariants} className="space-y-4">
+          {state.fileContent &&
+          <motion.div layout variants={itemVariants} className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Simple Preview</CardTitle>
@@ -247,34 +247,34 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
                 </CardHeader>
                 <CardContent>
                   <ErrorBoundary>
-                    {isLoadingMetrics ? <Skeleton className="aspect-video w-full" /> : (
-                      <div ref={previewRef} className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 overflow-hidden relative">
+                    {isLoadingMetrics ? <Skeleton className="aspect-video w-full" /> :
+                  <div ref={previewRef} className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 overflow-hidden relative">
                         <TransformWrapper minScale={1} maxScale={4} disabled={!advancedEditorOpen}>
                           <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full">
                             <img key={previewKey} src={processedPreviewData.src} alt="Preview" className={`max-h-full max-w-full object-contain transition-all duration-300 ${blendModes[blendMode]}`} />
                           </TransformComponent>
                         </TransformWrapper>
-                        {showRuler && state.artworkMetrics && (
-                           <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${state.artworkMetrics.widthMm} ${state.artworkMetrics.heightMm}`} preserveAspectRatio="none">
+                        {showRuler && state.artworkMetrics &&
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${state.artworkMetrics.widthMm} ${state.artworkMetrics.heightMm}`} preserveAspectRatio="none">
                                 <line x1="0" y1="0" x2={state.artworkMetrics.widthMm} y2="0" stroke="rgba(128,128,128,0.5)" strokeWidth="0.5" strokeDasharray="2 2" />
                                 <line x1="0" y1="0" x2="0" y2={state.artworkMetrics.heightMm} stroke="rgba(128,128,128,0.5)" strokeWidth="0.5" strokeDasharray="2 2" />
                                 <text x="5" y="10" fontSize="8" fill="gray">{state.artworkMetrics.heightMm.toFixed(1)}mm</text>
                                 <text x={state.artworkMetrics.widthMm - 25} y={state.artworkMetrics.heightMm - 5} fontSize="8" fill="gray">{state.artworkMetrics.widthMm.toFixed(1)}mm</text>
                            </svg>
-                        )}
+                    }
                       </div>
-                    )}
+                  }
                   </ErrorBoundary>
                 </CardContent>
               </Card>
               <Button variant="outline" onClick={() => setAdvancedEditorOpen(!advancedEditorOpen)} className="w-full"><Settings className="mr-2 h-4 w-4" /> {advancedEditorOpen ? 'Hide' : 'Show'} Advanced Editor</Button>
               <AnimatePresence>
-                {advancedEditorOpen && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                {advancedEditorOpen &&
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                     <Card className="mt-4"><CardHeader><CardTitle>Advanced Editor Tools</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2"><Label>Scale</Label><Slider value={[state.scalePercent]} onValueChange={handleScaleChange} min={50} max={200} step={10} /><span className="text-sm font-mono w-12 text-right">{state.scalePercent}%</span></div>
-                        <div className="space-y-2"><Label>Blend Mode</Label><Select value={blendMode} onValueChange={setBlendMode}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="normal">Normal</SelectItem><SelectItem value="light-etch">Light Etch</SelectItem><SelectItem value="deep-engrave">Deep Engrave</SelectItem><SelectItem value="color-burn">Color Burn</SelectItem></SelectContent></Select></div>
+                        <div className="space-y-2"><Label>Blend Mode</Label><Select value={blendMode} onValueChange={setBlendMode}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="normal">Normal</SelectItem><SelectItem value="light-etch">Light Etch</SelectItem><SelectItem value="deep-engrave">Deep Engrave</SelectItem><SelectItem value="color-burn">Color Burn</SelectItem></SelectContent></Select></div>
                         <div className="flex items-center space-x-2"><Switch id="red-lines" checked={redLines} onCheckedChange={setRedLines} /><Label htmlFor="red-lines">Show Cut Lines (Red)</Label></div>
                         <div className="flex items-center space-x-2"><Switch id="masking-mode" checked={maskingMode} onCheckedChange={setMaskingMode} /><Label htmlFor="masking-mode">Show Cut Shape Only</Label></div>
                         <div className="flex items-center space-x-2"><Switch id="show-ruler" checked={showRuler} onCheckedChange={setShowRuler} /><Label htmlFor="show-ruler">Show Ruler & Dimensions</Label></div>
@@ -282,11 +282,11 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
                       </CardContent>
                     </Card>
                   </motion.div>
-                )}
+              }
               </AnimatePresence>
               {manufacturabilityIssues.length > 0 && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Manufacturability Warning</AlertTitle><AlertDescription><ul>{manufacturabilityIssues.map((issue, i) => <li key={i}>- {issue}</li>)}</ul></AlertDescription></Alert>}
             </motion.div>
-          )}
+          }
         </div>
         <div className="lg:col-span-3">
           <motion.div layout variants={itemVariants} className="sticky top-24">
@@ -296,6 +296,6 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       </motion.div>
       <HelpButton savedQuoteId={state.savedQuoteId} />
       <LoginModal open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen} onLoginSuccess={() => toast.info("Login successful! Please click 'Save Quote' again.")} />
-    </>
-  );
+    </>);
+
 }
