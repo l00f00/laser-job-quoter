@@ -16,7 +16,7 @@ import { useNavigate } from "react-router-dom";
  *
  * If the actual prop names differ in your project, adjust the prop names accordingly.
  */
-import LoginModal from "@/components/LoginModal";
+import { LoginModal } from "@/components/auth/LoginModal";
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   /**

@@ -13,8 +13,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
  * - HomePage and DemoPage are existing pages in the template.
  * - LoginPage is the new page we added which renders the LoginModal.
  */
-import HomePage from "@/pages/HomePage";
-import DemoPage from "@/pages/DemoPage";
+import { HomePage } from "@/pages/HomePage";
+import { DemoPage } from "@/pages/DemoPage";
 import LoginPage from "@/pages/LoginPage";
 /**
  * Import global styles. Adjust path if your project uses a different stylesheet entry.
