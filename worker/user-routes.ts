@@ -3,6 +3,7 @@ import type { Env } from './core-utils';
 import { UserEntity, ChatBoardEntity, QuoteEntity, OrderEntity } from "./entities";
 import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
+import { OrderStatus } from "@shared/types";
 import type { Quote, Order } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // --- LuxQuote Routes ---
@@ -61,7 +62,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       id: `order_${crypto.randomUUID()}`,
       quoteId,
       userId: 'user_demo_01', // Mock user ID
-      status: 'pending',
+      status: OrderStatus.Pending,
       submittedAt: Date.now(),
       paymentStatus: 'mock_pending',
     };

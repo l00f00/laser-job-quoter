@@ -3,6 +3,7 @@
  */
 import { IndexedEntity } from "./core-utils";
 import type { User, Chat, ChatMessage, Quote, Material, Order } from "@shared/types";
+import { OrderStatus } from "@shared/types";
 import { MOCK_CHAT_MESSAGES, MOCK_CHATS, MOCK_USERS, MOCK_QUOTES, MOCK_MATERIALS } from "@shared/mock-data";
 // USER ENTITY: one DO instance per user
 export class UserEntity extends IndexedEntity<User> {
@@ -59,12 +60,12 @@ export class OrderEntity extends IndexedEntity<Order> {
     id: "",
     quoteId: "",
     userId: "",
-    status: 'pending',
+    status: OrderStatus.Pending,
     submittedAt: 0,
     paymentStatus: 'mock_pending',
   };
   static seedData = [];
   async updatePaymentStatus(status: 'mock_paid'): Promise<void> {
-    await this.patch({ paymentStatus: status, status: 'paid' });
+    await this.patch({ paymentStatus: status, status: OrderStatus.Paid });
   }
 }

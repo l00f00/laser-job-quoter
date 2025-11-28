@@ -144,12 +144,14 @@ export function QuoteBuilder() {
     if (!state.fileContent || !state.file) return '';
     if (state.jobType === 'cut' && state.file.type.includes('svg')) {
       const processedSvg = processSvgForCut(state.fileContent, redLines ? 'red' : 'black');
-      return `data:image/svg+xml;base64,${btoa(processedSvg)}`;
+      const base64 = btoa(unescape(encodeURIComponent(processedSvg)));
+      return `data:image/svg+xml;base64,${base64}`;
     }
     // For raster or other job types, use original content
     // Note: UploadDropzone provides data URL for raster, raw text for SVG
     if (state.file.type.includes('svg')) {
-      return `data:image/svg+xml;base64,${btoa(state.fileContent)}`;
+      const base64 = btoa(unescape(encodeURIComponent(state.fileContent)));
+      return `data:image/svg+xml;base64,${base64}`;
     }
     return state.fileContent; // This is already a data URL from UploadDropzone
   }, [state.fileContent, state.file, state.jobType, redLines]);
@@ -237,13 +239,14 @@ export function QuoteBuilder() {
                         style={{ backgroundImage: state.material?.textureUrl ? `url(${state.material.textureUrl})` : 'none' }}
                       >
                         <img
+                          key={processedPreviewSrc}
                           src={processedPreviewSrc}
                           alt="Artwork preview"
                           loading="lazy"
                           width={state.artworkMetrics?.widthMm}
                           height={state.artworkMetrics?.heightMm}
                           className={cn("max-h-full max-w-full object-contain transition-all duration-300", artworkPreviewStyles[state.jobType])}
-                          style={{ imageRendering: 'auto' }}
+                          style={{ imageRendering: 'auto' as const }}
                         />
                          {showKerf && state.material && (
                           <div

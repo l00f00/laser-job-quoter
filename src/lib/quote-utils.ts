@@ -145,12 +145,47 @@ export function processSvgForCut(svgString: string, strokeColor: string = 'black
       console.error("SVG parsing error:", parserError.textContent);
       throw new Error('Invalid SVG content');
     }
+
+    // Ensure root <svg> has an xmlns so data URLs and embeds render consistently
+    const root = doc.documentElement;
+    if (root && root.tagName && root.tagName.toLowerCase() === 'svg' && !root.getAttribute('xmlns')) {
+      root.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    }
+
     const elements = doc.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line');
     elements.forEach(el => {
+      // Remove any stroke/fill/stroke-width declarations from the style attribute so presentation
+      // attributes and inline style we set below take effect.
+      const styleAttr = el.getAttribute('style');
+      if (styleAttr) {
+        const parts = styleAttr.split(';').map(s => s.trim()).filter(Boolean);
+        const filtered = parts.filter(p => {
+          const key = p.split(':')[0].trim().toLowerCase();
+          return !(key === 'stroke' || key === 'fill' || key === 'stroke-width');
+        });
+        if (filtered.length > 0) {
+          el.setAttribute('style', filtered.join('; '));
+        } else {
+          el.removeAttribute('style');
+        }
+      }
+
+      // Set presentation attributes for cut preview
       el.setAttribute('fill', 'none');
       el.setAttribute('stroke', strokeColor);
       el.setAttribute('stroke-width', '0.5');
+
+      // Also set explicit inline style properties (with high specificity) to override stylesheet rules.
+      // Use CSSOM setProperty so these appear as inline styles.
+      try {
+        (el as unknown as { style?: CSSStyleDeclaration }).style?.setProperty('stroke', strokeColor, 'important');
+        (el as unknown as { style?: CSSStyleDeclaration }).style?.setProperty('fill', 'none', 'important');
+        (el as unknown as { style?: CSSStyleDeclaration }).style?.setProperty('stroke-width', '0.5', 'important');
+      } catch {
+        // If style manipulation is not supported for some element, ignore and rely on presentation attributes.
+      }
     });
+
     const serializer = new XMLSerializer();
     return serializer.serializeToString(doc.documentElement);
   } catch (error) {
