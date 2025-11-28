@@ -11,15 +11,19 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 import '@/index.css'
 import { HomePage } from '@/pages/HomePage'
-
+import { QuotePage } from '@/pages/QuotePage'; // Import the new QuotePage
 const router = createBrowserRouter([
   {
     path: "/",
     element: <HomePage />,
     errorElement: <RouteErrorBoundary />,
   },
+  {
+    path: "/quote",
+    element: <QuotePage />,
+    errorElement: <RouteErrorBoundary />,
+  },
 ]);
-
 // Do not touch this code
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -28,4 +32,3 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>,
 )
-   

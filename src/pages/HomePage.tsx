@@ -1,148 +1,104 @@
-// Home page of the app, Currently a demo page for demonstration.
-// Please rewrite this file to implement your own logic. Do not replace or delete it, simply rewrite this HomePage.tsx file.
-import { useEffect } from 'react'
-import { Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { Toaster, toast } from '@/components/ui/sonner'
-import { create } from 'zustand'
-import { useShallow } from 'zustand/react/shallow'
-import { AppLayout } from '@/components/layout/AppLayout'
-
-// Timer store: independent slice with a clear, minimal API, for demonstration
-type TimerState = {
-  isRunning: boolean;
-  elapsedMs: number;
-  start: () => void;
-  pause: () => void;
-  reset: () => void;
-  tick: (deltaMs: number) => void;
-}
-
-const useTimerStore = create<TimerState>((set) => ({
-  isRunning: false,
-  elapsedMs: 0,
-  start: () => set({ isRunning: true }),
-  pause: () => set({ isRunning: false }),
-  reset: () => set({ elapsedMs: 0, isRunning: false }),
-  tick: (deltaMs) => set((s) => ({ elapsedMs: s.elapsedMs + deltaMs })),
-}))
-
-// Counter store: separate slice to showcase multiple stores without coupling
-type CounterState = {
-  count: number;
-  inc: () => void;
-  reset: () => void;
-}
-
-const useCounterStore = create<CounterState>((set) => ({
-  count: 0,
-  inc: () => set((s) => ({ count: s.count + 1 })),
-  reset: () => set({ count: 0 }),
-}))
-
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
+import { AppLayout } from '@/components/layout/AppLayout';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { motion } from 'framer-motion';
+import { Upload, Gem, Zap, LifeBuoy, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+const featureCards = [
+  {
+    icon: Upload,
+    title: 'Instant Upload',
+    description: 'Drag and drop your SVG, PNG, or JPG files to get started in seconds.',
+  },
+  {
+    icon: Gem,
+    title: 'Rich Material Library',
+    description: 'Choose from a wide variety of woods, acrylics, and plastics.',
+  },
+  {
+    icon: Zap,
+    title: 'Live Pricing',
+    description: 'Our smart engine calculates your price instantly as you make changes.',
+  },
+  {
+    icon: LifeBuoy,
+    title: 'Expert Help',
+    description: 'Get assistance from our team at any step of the process.',
+  },
+];
 export function HomePage() {
-  // Select only what is needed to avoid unnecessary re-renders
-  const { isRunning, elapsedMs } = useTimerStore(
-    useShallow((s) => ({ isRunning: s.isRunning, elapsedMs: s.elapsedMs })),
-  )
-  const start = useTimerStore((s) => s.start)
-  const pause = useTimerStore((s) => s.pause)
-  const resetTimer = useTimerStore((s) => s.reset)
-  const count = useCounterStore((s) => s.count)
-  const inc = useCounterStore((s) => s.inc)
-  const resetCount = useCounterStore((s) => s.reset)
-
-  // Drive the timer only while running; avoid update-depth issues with a scoped RAF
-  useEffect(() => {
-    if (!isRunning) return
-    let raf = 0
-    let last = performance.now()
-    const loop = () => {
-      const now = performance.now()
-      const delta = now - last
-      last = now
-      // Read store API directly to keep effect deps minimal and stable
-      useTimerStore.getState().tick(delta)
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [isRunning])
-
-  const onPleaseWait = () => {
-    inc()
-    if (!isRunning) {
-      start()
-      toast.success('Building your app…', {
-        description: 'Hang tight, we\'re setting everything up.',
-      })
-    } else {
-      pause()
-      toast.info('Taking a short pause', {
-        description: 'We\'ll continue shortly.',
-      })
-    }
-  }
-
-  const formatted = formatDuration(elapsedMs)
-
   return (
     <AppLayout>
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 overflow-hidden relative">
-        <ThemeToggle />
-        <div className="absolute inset-0 bg-gradient-rainbow opacity-10 dark:opacity-20 pointer-events-none" />
-        <div className="text-center space-y-8 relative z-10 animate-fade-in">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary floating">
-              <Sparkles className="w-8 h-8 text-white rotating" />
-            </div>
-          </div>
-          <h1 className="text-5xl md:text-7xl font-display font-bold text-balance leading-tight">
-            Creating your <span className="text-gradient">app</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto text-pretty">
-            Your application would be ready soon.
-          </p>
-          <div className="flex justify-center gap-4">
-            <Button 
-              size="lg"
-              onClick={onPleaseWait}
-              className="btn-gradient px-8 py-4 text-lg font-semibold hover:-translate-y-0.5 transition-all duration-200"
-              aria-live="polite"
+      <ThemeToggle />
+      <div className="relative overflow-hidden">
+        {/* Hero Section */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-24 md:py-32 lg:py-40 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
             >
-              Please Wait
-            </Button>
-          </div>
-          <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-            <div>
-              Time elapsed: <span className="font-medium tabular-nums text-foreground">{formatted}</span>
-            </div>
-            <div>
-              Coins: <span className="font-medium tabular-nums text-foreground">{count}</span>
-            </div>
-          </div>
-          <div className="flex justify-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => { resetTimer(); resetCount(); toast('Reset complete') }}>
-              Reset
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => { inc(); toast('Coin added') }}>
-              Add Coin
-            </Button>
+              <div className="inline-block bg-indigo-100 text-[rgb(99,102,241)] font-semibold rounded-full px-4 py-1 text-sm mb-4">
+                LuxQuote — Instant Laser Job Quoter
+              </div>
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold text-foreground text-balance">
+                Beautiful Laser Cutting Quotes, <span className="text-gradient bg-gradient-to-r from-[rgb(245,128,37)] to-[rgb(230,90,27)]">Instantly</span>
+              </h1>
+              <p className="mt-6 max-w-2xl mx-auto text-lg md:text-xl text-muted-foreground text-balance">
+                From prototype to production, get precise pricing for your laser cutting and engraving projects in real-time. Upload your design and see the magic happen.
+              </p>
+              <div className="mt-10 flex justify-center">
+                <Button asChild size="lg" className="text-lg px-8 py-6 bg-[rgb(245,128,37)] hover:bg-[rgb(230,90,27)] text-white shadow-primary hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                  <Link to="/quote">
+                    Start a Quote <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </Button>
+              </div>
+            </motion.div>
           </div>
         </div>
-        <footer className="absolute bottom-8 text-center text-muted-foreground/80">
-          <p>Powered by Cloudflare</p>
+        {/* Features Section */}
+        <div className="bg-muted/50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="py-16 md:py-24 lg:py-32">
+              <div className="text-center max-w-3xl mx-auto">
+                <h2 className="text-3xl md:text-4xl font-display font-bold">A Seamless Quoting Experience</h2>
+                <p className="mt-4 text-lg text-muted-foreground">
+                  We've streamlined every step to make getting a quote as simple and transparent as possible.
+                </p>
+              </div>
+              <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                {featureCards.map((feature, i) => (
+                  <motion.div
+                    key={feature.title}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: i * 0.1 }}
+                  >
+                    <Card className="h-full text-center shadow-soft hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
+                      <CardHeader>
+                        <div className="mx-auto bg-indigo-100 text-[rgb(99,102,241)] h-12 w-12 rounded-lg flex items-center justify-center">
+                          <feature.icon className="h-6 w-6" />
+                        </div>
+                        <CardTitle className="mt-4">{feature.title}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-muted-foreground">{feature.description}</p>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <footer className="text-center py-8 text-muted-foreground/80">
+          <p>Built with ❤��� at Cloudflare</p>
         </footer>
-        <Toaster richColors closeButton />
       </div>
     </AppLayout>
-  )
+  );
 }

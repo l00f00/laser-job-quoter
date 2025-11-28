@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { Material } from '@shared/types';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { CheckCircle2 } from 'lucide-react';
@@ -41,21 +41,14 @@ export function MaterialSelector({ selectedMaterialId, onSelectMaterial }: Mater
         >
           <CardContent className="p-4 flex items-center gap-4 relative">
             {selectedMaterialId === material.id && (
-              <div className="absolute top-2 right-2 text-white bg-[rgb(99,102,241)] rounded-full p-0.5 z-10">
+              <div className="absolute top-2 right-2 text-white bg-[rgb(99,102,241)] rounded-full p-0.5">
                 <CheckCircle2 className="h-4 w-4" />
               </div>
             )}
             <div
-              className="h-16 w-16 rounded-md flex-shrink-0 bg-cover bg-center relative overflow-hidden"
+              className="h-16 w-16 rounded-md flex-shrink-0 bg-cover bg-center"
               style={{ backgroundImage: `url(${material.thumbnailUrl})` }}
-            >
-              {material.textureUrl && (
-                 <div
-                    className="absolute inset-0 bg-cover bg-center opacity-30"
-                    style={{ backgroundImage: `url(${material.textureUrl})` }}
-                 />
-              )}
-            </div>
+            />
             <div>
               <p className="font-semibold text-foreground">{material.name}</p>
               <p className="text-sm text-muted-foreground line-clamp-2">{material.description}</p>
