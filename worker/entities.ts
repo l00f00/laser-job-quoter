@@ -3,9 +3,10 @@
  * Assumes D1 binding `DB` is present in `env`. Falls back to DO if not.
  */
 import { IndexedEntity } from "./core-utils";
-import type { User, Chat, ChatMessage, Quote, Material, Order, Env } from "@shared/types";
+import type { User, Chat, ChatMessage, Quote, Material, Order } from "@shared/types";
 import { OrderStatus } from "@shared/types";
 import { MOCK_CHAT_MESSAGES, MOCK_CHATS, MOCK_USERS, MOCK_QUOTES } from "@shared/mock-data";
+import type { Env } from './core-utils';
 // USER ENTITY
 export class UserEntity extends IndexedEntity<User> {
   static readonly entityName = "user";

@@ -75,6 +75,7 @@ Saved quotes can be easily modified.
 5.  Click "Update Quote" to save your changes via a `PUT` request to `/api/quotes/:id`.
 ## Backend Persistence (Hybrid DO + D1)
 The application uses a hybrid model for persistence, leveraging both Durable Objects (DO) for high-frequency writes and D1 for relational queries and analytics.
+- **D1 Integration: Optional.** The worker's types have been extended with `DB?: D1Database`. The code uses type guards like `if (env.DB)` to safely access D1 features when the binding is present, falling back to DO-based logic otherwise. This prevents TypeScript errors and allows the application to run without a D1 database configured.
 - **Durable Objects**: Used for creating and updating individual quotes and orders, providing strong consistency per object.
 - **Cloudflare D1**: A SQL database used for listing orders and running analytical queries across all data, which is difficult with DOs alone.
 ### D1 Setup (Manual)
@@ -118,6 +119,7 @@ To enable D1-powered features, you need to set up a D1 database and bind it to t
     - In the **Orders** tab, find the order you created and change its status.
     - In the **Analytics** tab, observe the updated revenue and material stats.
     - In the **Payments** tab, view the payment status.
+8.  **Verify No Type Errors**: Run `bun run build && tsc --noEmit` to confirm the project is type-safe.
 ## Deployment
 Deploy to Cloudflare Workers for global edge performance.
 1.  Login to Wrangler: `wrangler login`

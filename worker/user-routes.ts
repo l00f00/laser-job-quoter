@@ -9,6 +9,7 @@ import { UserEntity, ChatBoardEntity, QuoteEntity, OrderEntity } from "./entitie
 import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
 import { OrderStatus, type LoginUser, type Quote, type Order, type PricePackage } from "@shared/types";
+import type { D1Database } from "@cloudflare/workers-types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // --- Auth Routes ---
   app.post('/api/login', async (c) => {
@@ -131,7 +132,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/admin/orders', async (c) => {
     if (c.env.DB) {
       try {
-        const { results } = await c.env.DB.prepare('SELECT * FROM orders ORDER BY submittedAt DESC').all<Order>();
+        const db = c.env.DB as D1Database;
+        const { results } = await db.prepare('SELECT * FROM orders ORDER BY submittedAt DESC').all<Order>();
         return ok(c, results);
       } catch (e) {
         console.error("D1 query for orders failed:", e);
@@ -159,9 +161,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/admin/analytics', async (c) => {
     if (c.env.DB) {
       try {
-        const revenueResult = await c.env.DB.prepare("SELECT SUM(CAST(json_extract(q.estimate, '$.total') AS REAL)) as total FROM orders o JOIN quotes q ON o.quote_id = q.id WHERE o.status = ?1").bind('paid').first<{ total: number }>();
-        const orderCountResult = await c.env.DB.prepare("SELECT COUNT(*) as count FROM orders").first<{ count: number }>();
-        const materialsResult = await c.env.DB.prepare("SELECT materialId as name, COUNT(*) as value FROM quotes GROUP BY materialId ORDER BY value DESC LIMIT 5").all<{ name: string, value: number }>();
+        const db = c.env.DB as D1Database;
+        const revenueResult = await db.prepare("SELECT SUM(CAST(json_extract(q.estimate, '$.total') AS REAL)) as total FROM orders o JOIN quotes q ON o.quote_id = q.id WHERE o.status = ?1").bind('paid').first<{ total: number }>();
+        const orderCountResult = await db.prepare("SELECT COUNT(*) as count FROM orders").first<{ count: number }>();
+        const materialsResult = await db.prepare("SELECT materialId as name, COUNT(*) as value FROM quotes GROUP BY materialId ORDER BY value DESC LIMIT 5").all<{ name: string, value: number }>();
         return ok(c, {
           totalRevenue: revenueResult?.total || 0,
           orderCount: orderCountResult?.count || 0,
