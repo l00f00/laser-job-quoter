@@ -86,7 +86,8 @@ function runSetupCommands() {
     "bun add stripe @stripe/stripe-js",
     "bun install react-error-boundary",
     "bun add react-error-boundary",
-    "bun add react-zoom-pan-pinch html2canvas"
+    "bun add react-zoom-pan-pinch html2canvas",
+    "bun install react-zoom-pan-pinch html2canvas"
 ];
     
     if (commands.length === 0) {
