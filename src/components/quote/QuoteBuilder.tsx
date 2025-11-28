@@ -47,6 +47,7 @@ export function QuoteBuilder() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [manufacturabilityIssues, setManufacturabilityIssues] = useState<string[]>([]);
   const [showKerf, setShowKerf] = useState(false);
+  const [redLines, setRedLines] = useState(false);
   const handleFileAccepted = async (file: File, content: string, physicalWidthMm: number) => {
     setIsLoadingMetrics(true);
     setManufacturabilityIssues([]);
@@ -142,7 +143,7 @@ export function QuoteBuilder() {
   const processedPreviewSrc = useMemo(() => {
     if (!state.fileContent || !state.file) return '';
     if (state.jobType === 'cut' && state.file.type.includes('svg')) {
-      const processedSvg = processSvgForCut(state.fileContent);
+      const processedSvg = processSvgForCut(state.fileContent, redLines ? 'red' : 'black');
       return `data:image/svg+xml;base64,${btoa(processedSvg)}`;
     }
     // For raster or other job types, use original content
@@ -151,7 +152,7 @@ export function QuoteBuilder() {
       return `data:image/svg+xml;base64,${btoa(state.fileContent)}`;
     }
     return state.fileContent; // This is already a data URL from UploadDropzone
-  }, [state.fileContent, state.file, state.jobType]);
+  }, [state.fileContent, state.file, state.jobType, redLines]);
   const step = !state.material ? 1 : !state.file ? 2 : 3;
   const artworkPreviewStyles = {
     cut: 'mix-blend-normal', // Use normal blend for clear outlines
@@ -205,14 +206,22 @@ export function QuoteBuilder() {
           {state.fileContent && (
             <motion.div layout variants={itemVariants} className="space-y-4">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
                   <CardTitle>Artwork Preview</CardTitle>
-                  {state.material && (
-                    <div className="flex items-center space-x-2">
-                      <Label htmlFor="kerf-toggle">Kerf View</Label>
-                      <Switch id="kerf-toggle" checked={showKerf} onCheckedChange={setShowKerf} />
-                    </div>
-                  )}
+                  <div className="flex items-center space-x-4">
+                    {state.material && (
+                      <div className="flex items-center space-x-2">
+                        <Label htmlFor="kerf-toggle">Kerf View</Label>
+                        <Switch id="kerf-toggle" checked={showKerf} onCheckedChange={setShowKerf} />
+                      </div>
+                    )}
+                    {state.jobType === 'cut' && (
+                      <div className="flex items-center space-x-2">
+                        <Label htmlFor="red-lines">Red Lines</Label>
+                        <Switch id="red-lines" checked={redLines} onCheckedChange={setRedLines} />
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {isLoadingMetrics ? (
@@ -234,7 +243,7 @@ export function QuoteBuilder() {
                           width={state.artworkMetrics?.widthMm}
                           height={state.artworkMetrics?.heightMm}
                           className={cn("max-h-full max-w-full object-contain transition-all duration-300", artworkPreviewStyles[state.jobType])}
-                          style={{ imageRendering: 'optimizeQuality' }}
+                          style={{ imageRendering: 'auto' }}
                         />
                          {showKerf && state.material && (
                           <div

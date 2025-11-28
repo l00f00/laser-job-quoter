@@ -136,7 +136,7 @@ export function getSvgMetrics(svgString: string, physicalWidthMm: number): Promi
     }
   });
 }
-export function processSvgForCut(svgString: string): string {
+export function processSvgForCut(svgString: string, strokeColor: string = 'black'): string {
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgString, 'image/svg+xml');
@@ -148,7 +148,7 @@ export function processSvgForCut(svgString: string): string {
     const elements = doc.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line');
     elements.forEach(el => {
       el.setAttribute('fill', 'none');
-      el.setAttribute('stroke', 'black');
+      el.setAttribute('stroke', strokeColor);
       el.setAttribute('stroke-width', '0.5');
     });
     const serializer = new XMLSerializer();
