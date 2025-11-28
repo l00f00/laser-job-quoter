@@ -1,33 +1,84 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
-import { Link } from 'react-router-dom';
-import { ShieldCheck, AlertTriangle, Edit, BarChart, CreditCard } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { HelpButton } from '@/components/HelpButton';
 import { Toaster } from '@/components/ui/sonner';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api-client';
 import { mockAuth } from '@/lib/auth-utils';
-import { OrdersTab } from '@/components/admin/OrdersTab';
-import { PaymentsTab } from '@/components/admin/PaymentsTab';
+import type { Order } from '@shared/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { motion } from 'framer-motion';
-const LazyAnalyticsTab = lazy(() => import('@/components/admin/AnalyticsTab').then(module => ({ default: module.AnalyticsTab })));
-const AnalyticsFallback = () => (
-  <div className="grid gap-6 md:grid-cols-2">
-    <Skeleton className="h-24 w-full" />
-    <Skeleton className="h-24 w-full" />
-    <div className="md:col-span-2"><Skeleton className="h-80 w-full" /></div>
-  </div>
-);
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+function AdminDashboard() {
+  const { data: orders, isLoading, error } = useQuery<Order[]>({
+    queryKey: ['admin-orders'],
+    queryFn: () => api('/api/admin/orders', {
+      headers: { 'Authorization': `Bearer ${mockAuth.getToken()}` }
+    }),
+    enabled: mockAuth.isAuthenticated(),
+  });
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Error Loading Orders</AlertTitle>
+        <AlertDescription>{(error as Error).message}</AlertDescription>
+      </Alert>
+    );
+  }
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>All Orders</CardTitle>
+        <CardDescription>A list of all submitted orders.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Order ID</TableHead>
+              <TableHead>Quote ID</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Submitted</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orders?.map(order => (
+              <TableRow key={order.id}>
+                <TableCell className="font-mono text-xs">{order.id}</TableCell>
+                <TableCell className="font-mono text-xs">{order.quoteId}</TableCell>
+                <TableCell><Badge variant={order.status === 'paid' ? 'default' : 'secondary'}>{order.status}</Badge></TableCell>
+                <TableCell>{new Date(order.submittedAt).toLocaleString()}</TableCell>
+                <TableCell>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to={`/quotes/${order.quoteId}`}>View Quote</Link>
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
 export function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(mockAuth.isAuthenticated());
-  const [isAdmin, setIsAdmin] = useState(mockAuth.getRole() === 'admin');
   useEffect(() => {
-    const checkAuth = () => {
-      setIsAuthenticated(mockAuth.isAuthenticated());
-      setIsAdmin(mockAuth.getRole() === 'admin');
-    };
+    const checkAuth = () => setIsAuthenticated(mockAuth.isAuthenticated());
     window.addEventListener('storage', checkAuth);
     return () => window.removeEventListener('storage', checkAuth);
   }, []);
@@ -38,41 +89,18 @@ export function AdminPage() {
           <div className="text-center mb-12">
             <ShieldCheck className="mx-auto h-12 w-12 text-indigo-500" />
             <h1 className="mt-4 text-4xl md:text-5xl font-display font-bold">Admin Dashboard</h1>
-            <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">Manage orders, view analytics, and oversee payments.</p>
+            <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+              Manage and review all incoming orders.
+            </p>
           </div>
-          {!isAuthenticated || !isAdmin ? (
-            <Alert variant="destructive" className="max-w-lg mx-auto">
+          {isAuthenticated ? (
+            <AdminDashboard />
+          ) : (
+            <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Access Denied</AlertTitle>
-              <AlertDescription>
-                You must be logged in as an administrator to view this page.
-                <Button asChild variant="link" className="p-0 h-auto ml-1">
-                  <Link to="/login">Login as Admin</Link>
-                </Button>
-              </AlertDescription>
+              <AlertDescription>You must be logged in as an administrator to view this page.</AlertDescription>
             </Alert>
-          ) : (
-            <Tabs defaultValue="orders" className="w-full">
-              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
-                <TabsTrigger value="orders"><Edit className="mr-2 h-4 w-4" />Orders</TabsTrigger>
-                <TabsTrigger value="analytics"><BarChart className="mr-2 h-4 w-4" />Analytics</TabsTrigger>
-                <TabsTrigger value="payments"><CreditCard className="mr-2 h-4 w-4" />Payments</TabsTrigger>
-              </TabsList>
-              <motion.div
-                key="tabs-content"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <TabsContent value="orders" className="mt-6"><OrdersTab /></TabsContent>
-                <TabsContent value="analytics" className="mt-6">
-                  <Suspense fallback={<AnalyticsFallback />}>
-                    <LazyAnalyticsTab />
-                  </Suspense>
-                </TabsContent>
-                <TabsContent value="payments" className="mt-6"><PaymentsTab /></TabsContent>
-              </motion.div>
-            </Tabs>
           )}
         </div>
       </div>

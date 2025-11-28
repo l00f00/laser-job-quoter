@@ -1,8 +1,8 @@
 import { saveAs } from 'file-saver';
 import type { Quote, PricePackage } from '@shared/types';
 export function exportQuoteCSV(quote: Quote) {
-  const estimate = quote.estimate as PricePackage;
-  if (!estimate || !estimate.breakdown) {
+  const estimate = quote.estimate as PricePackage | undefined;
+  if (!estimate?.breakdown) {
     alert('Cannot export quote without a price breakdown.');
     return;
   }
@@ -27,13 +27,13 @@ export function exportQuoteCSV(quote: Quote) {
   document.body.removeChild(link);
 }
 export function exportQuotePDF(quote: Quote) {
-  const estimate = quote.estimate as PricePackage;
+  const estimate = quote.estimate as PricePackage | undefined;
   if (!estimate) {
     alert('Cannot export quote without an estimate.');
     return;
   }
-  const breakdownHtml = Object.entries(estimate.breakdown)
-    .map(([key, value]) => `<tr><td>${key}</td><td style="text-align: right;">$${value.toFixed(2)}</td></tr>`)
+  const breakdownHtml = Object.entries(estimate.breakdown ?? {})
+    .map(([key, value]) => `<tr><td>${key}</td><td style="text-align: right;">${(value as number).toFixed(2)}</td></tr>`)
     .join('');
   const thumbnailHtml = quote.thumbnail
     ? `<img src="${quote.thumbnail}" style="max-width: 200px; max-height: 200px; border: 1px solid #eee; margin-top: 20px;" alt="Thumbnail"/>`
@@ -64,13 +64,17 @@ export function exportQuotePDF(quote: Quote) {
         <h2>Price Estimate (${estimate.name})</h2>
         <table>
           ${breakdownHtml}
-          <tr class="total"><td>Total</td><td style="text-align: right;">$${estimate.total.toFixed(2)}</td></tr>
+          <tr class="total"><td>Total</td><td style="text-align: right;">${estimate.total.toFixed(2)}</td></tr>
         </table>
         ${thumbnailHtml}
       </body>
     </html>
   `;
   const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-  saveAs(blob, `luxquote_${quote.id}.html`);
-  alert("A printable HTML file has been saved. You can open it and print to PDF from your browser.");
+  const url = URL.createObjectURL(blob);
+  const printWindow = window.open(url);
+  printWindow?.addEventListener('load', () => {
+    printWindow.print();
+    // URL.revokeObjectURL(url); // Can cause issues if print dialog is slow
+  });
 }

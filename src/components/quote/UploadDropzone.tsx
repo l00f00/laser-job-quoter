@@ -22,15 +22,15 @@ export function UploadDropzone({ onFileAccepted }: UploadDropzoneProps) {
       return;
     }
     const acceptedFile = acceptedFiles[0];
+    if (!acceptedFile.type.match(/image\/(svg\+xml|png|jpeg)/)) {
+      toast.error("Invalid file type", { description: "Please upload an SVG, PNG, or JPG file." });
+      return;
+    }
     setFile(acceptedFile);
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
-      if (acceptedFile.type.startsWith('image/')) {
-        setPreview(content);
-      } else if (acceptedFile.type === 'image/svg+xml') {
-        setPreview(content);
-      }
+      setPreview(content);
     };
     reader.readAsDataURL(acceptedFile);
   }, []);
@@ -114,7 +114,7 @@ export function UploadDropzone({ onFileAccepted }: UploadDropzoneProps) {
         <p className="text-lg font-medium">
           {isDragActive ? 'Drop your file here' : 'Drag & drop your artwork, or click to browse'}
         </p>
-        <p className="text-sm">SVG, PNG, JPG, or JPEG (Max 10MB)</p>
+        <p className="text-sm">SVG, PNG, or JPG (Max 10MB)</p>
       </div>
     </div>
   );

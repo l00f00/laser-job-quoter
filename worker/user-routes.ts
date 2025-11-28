@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import type { Env } from './core-utils';
-import { UserEntity, ChatBoardEntity, QuoteEntity } from "./entities";
+import { UserEntity, ChatBoardEntity, QuoteEntity, OrderEntity } from "./entities";
 import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
-import type { Quote } from "@shared/types";
+import type { Quote, Order } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // --- LuxQuote Routes ---
   app.get('/api/materials', (c) => {
@@ -12,7 +12,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/quotes', async (c) => {
     await QuoteEntity.ensureSeed(c.env);
     const page = await QuoteEntity.list(c.env);
-    // Return newest first
     const sorted = page.items.sort((a, b) => b.createdAt - a.createdAt);
     return ok(c, sorted);
   });
@@ -26,12 +25,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     return ok(c, quote);
   });
   app.post('/api/quotes', async (c) => {
-    // Mock auth check - in a real app, this would be a proper JWT/session validation
     const authHeader = c.req.header('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer mock_token')) {
-      // For this phase, we'll allow it but log a warning. In production, this would be a 401.
       console.warn('Auth header missing or invalid for POST /api/quotes');
-      // return c.json({ success: false, error: 'Unauthorized' }, 401);
     }
     const body = (await c.req.json()) as Partial<Quote>;
     if (!body.materialId || !body.estimate) {
@@ -53,24 +49,47 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const created = await QuoteEntity.create(c.env, newQuote);
     return ok(c, created);
   });
+  // --- Order Routes ---
+  app.post('/api/orders', async (c) => {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader) return c.json({ success: false, error: 'Unauthorized' }, 401);
+    const { quoteId } = (await c.req.json()) as { quoteId: string };
+    if (!quoteId) return bad(c, 'quoteId is required');
+    const quote = new QuoteEntity(c.env, quoteId);
+    if (!(await quote.exists())) return notFound(c, 'Quote not found');
+    const newOrder: Order = {
+      id: `order_${crypto.randomUUID()}`,
+      quoteId,
+      userId: 'user_demo_01', // Mock user ID
+      status: 'pending',
+      submittedAt: Date.now(),
+      paymentStatus: 'mock_pending',
+    };
+    const created = await OrderEntity.create(c.env, newOrder);
+    return ok(c, created);
+  });
+  app.get('/api/admin/orders', async (c) => {
+    // In a real app, this would be a proper admin role check
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader) return c.json({ success: false, error: 'Unauthorized' }, 401);
+    await OrderEntity.ensureSeed(c.env);
+    const page = await OrderEntity.list(c.env);
+    const sorted = page.items.sort((a, b) => b.submittedAt - a.createdAt);
+    return ok(c, sorted);
+  });
   // --- Template Demo Routes (can be removed later) ---
-  app.get('/api/test', (c) => c.json({ success: true, data: { name: 'CF Workers Demo' }}));
-  // USERS
   app.get('/api/users', async (c) => {
     await UserEntity.ensureSeed(c.env);
-    const page = await UserEntity.list(c.env);
-    return ok(c, page);
+    return ok(c, await UserEntity.list(c.env));
   });
   app.post('/api/users', async (c) => {
     const { name } = (await c.req.json()) as { name?: string };
     if (!name?.trim()) return bad(c, 'name required');
     return ok(c, await UserEntity.create(c.env, { id: crypto.randomUUID(), name: name.trim() }));
   });
-  // CHATS
   app.get('/api/chats', async (c) => {
     await ChatBoardEntity.ensureSeed(c.env);
-    const page = await ChatBoardEntity.list(c.env);
-    return ok(c, page);
+    return ok(c, await ChatBoardEntity.list(c.env));
   });
   app.post('/api/chats', async (c) => {
     const { title } = (await c.req.json()) as { title?: string };
@@ -78,7 +97,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const created = await ChatBoardEntity.create(c.env, { id: crypto.randomUUID(), title: title.trim(), messages: [] });
     return ok(c, { id: created.id, title: created.title });
   });
-  // MESSAGES
   app.get('/api/chats/:chatId/messages', async (c) => {
     const chat = new ChatBoardEntity(c.env, c.req.param('chatId'));
     if (!await chat.exists()) return notFound(c, 'chat not found');

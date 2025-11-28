@@ -35,6 +35,14 @@ export interface Quote {
   thumbnail?: string; // small base64 preview
   status: 'draft' | 'requested' | 'in_progress' | 'complete';
 }
+export interface Order {
+  id: string;
+  quoteId: string;
+  userId: string;
+  status: 'pending' | 'paid' | 'shipped';
+  submittedAt: number;
+  paymentStatus: 'mock_pending' | 'mock_paid';
+}
 export interface LoginUser {
   id: string;
   email: string;

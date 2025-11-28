@@ -2,7 +2,7 @@
  * Minimal real-world demo: One Durable Object instance per entity (User, ChatBoard), with Indexes for listing.
  */
 import { IndexedEntity } from "./core-utils";
-import type { User, Chat, ChatMessage, Quote, Material } from "@shared/types";
+import type { User, Chat, ChatMessage, Quote, Material, Order } from "@shared/types";
 import { MOCK_CHAT_MESSAGES, MOCK_CHATS, MOCK_USERS, MOCK_QUOTES, MOCK_MATERIALS } from "@shared/mock-data";
 // USER ENTITY: one DO instance per user
 export class UserEntity extends IndexedEntity<User> {
@@ -33,8 +33,6 @@ export class ChatBoardEntity extends IndexedEntity<ChatBoardState> {
   }
 }
 // --- LuxQuote Entities ---
-// For materials, we don't need a full entity as it's read-only mock data for now.
-// We'll serve it directly from the route.
 // QUOTE ENTITY
 export class QuoteEntity extends IndexedEntity<Quote> {
   static readonly entityName = "quote";
@@ -52,4 +50,21 @@ export class QuoteEntity extends IndexedEntity<Quote> {
     status: 'draft',
   };
   static seedData = MOCK_QUOTES;
+}
+// ORDER ENTITY
+export class OrderEntity extends IndexedEntity<Order> {
+  static readonly entityName = "order";
+  static readonly indexName = "orders";
+  static readonly initialState: Order = {
+    id: "",
+    quoteId: "",
+    userId: "",
+    status: 'pending',
+    submittedAt: 0,
+    paymentStatus: 'mock_pending',
+  };
+  static seedData = [];
+  async updatePaymentStatus(status: 'mock_paid'): Promise<void> {
+    await this.patch({ paymentStatus: status, status: 'paid' });
+  }
 }

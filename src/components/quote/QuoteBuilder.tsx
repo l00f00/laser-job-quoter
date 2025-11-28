@@ -9,11 +9,13 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
-import { calculateEstimate, getSvgMetrics, checkManufacturability, ArtworkMetrics } from '@/lib/quote-utils';
+import { calculateEstimate, getSvgMetrics, checkManufacturability, getKerfAdjustedMetrics, ArtworkMetrics } from '@/lib/quote-utils';
 import type { Material, Quote, PricePackage } from '@shared/types';
-import { Scissors, Brush, Layers, AlertTriangle } from 'lucide-react';
+import { Scissors, Brush, Layers, AlertTriangle, Sparkles } from 'lucide-react';
 import { mockAuth } from '@/lib/auth-utils';
 import { LoginModal } from '@/components/auth/LoginModal';
 type QuoteState = {
@@ -23,6 +25,7 @@ type QuoteState = {
   material?: Material;
   thicknessMm?: number;
   jobType: 'cut' | 'engrave' | 'both';
+  savedQuoteId?: string;
 };
 export function QuoteBuilder() {
   const [state, setState] = useState<QuoteState>({ jobType: 'cut' });
@@ -30,10 +33,11 @@ export function QuoteBuilder() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [manufacturabilityIssues, setManufacturabilityIssues] = useState<string[]>([]);
+  const [showKerf, setShowKerf] = useState(false);
   const handleFileAccepted = async (file: File, content: string, physicalWidthMm: number) => {
     setIsLoadingMetrics(true);
     setManufacturabilityIssues([]);
-    setState(s => ({ ...s, file, fileContent: content, artworkMetrics: undefined }));
+    setState(s => ({ ...s, file, fileContent: content, artworkMetrics: undefined, savedQuoteId: undefined }));
     try {
       const metrics = await getSvgMetrics(content, physicalWidthMm);
       setState(s => ({ ...s, artworkMetrics: metrics }));
@@ -48,6 +52,12 @@ export function QuoteBuilder() {
   const handleSelectMaterial = (material: Material) => {
     setState(s => ({ ...s, material, thicknessMm: material.thicknessesMm[0] }));
   };
+  const displayedMetrics = useMemo(() => {
+    if (showKerf && state.artworkMetrics && state.material) {
+      return getKerfAdjustedMetrics(state.artworkMetrics, state.material.kerfMm);
+    }
+    return state.artworkMetrics;
+  }, [showKerf, state.artworkMetrics, state.material]);
   useEffect(() => {
     if (state.artworkMetrics && state.material && state.thicknessMm) {
       const issues = checkManufacturability(state.artworkMetrics, state.material, state.thicknessMm);
@@ -55,16 +65,16 @@ export function QuoteBuilder() {
     }
   }, [state.artworkMetrics, state.material, state.thicknessMm]);
   const pricePackages = useMemo((): PricePackage[] | null => {
-    if (!state.artworkMetrics || !state.material || !state.thicknessMm) {
+    if (!displayedMetrics || !state.material || !state.thicknessMm) {
       return null;
     }
-    return calculateEstimate(state.artworkMetrics, {
+    return calculateEstimate(displayedMetrics, {
       material: state.material,
       thicknessMm: state.thicknessMm,
       jobType: state.jobType,
     });
-  }, [state.artworkMetrics, state.material, state.thicknessMm, state.jobType]);
-  const handleSaveQuote = async () => {
+  }, [displayedMetrics, state.material, state.thicknessMm, state.jobType]);
+  const handleSaveQuote = async (selectedPackage: PricePackage) => {
     if (!mockAuth.isAuthenticated()) {
       setIsLoginModalOpen(true);
       return;
@@ -75,7 +85,6 @@ export function QuoteBuilder() {
     }
     setIsSaving(true);
     try {
-      const standardEstimate = pricePackages.find(p => p.name === 'Standard') || pricePackages[0];
       const quoteData: Partial<Quote> = {
         title: state.file.name,
         materialId: state.material.id,
@@ -83,15 +92,16 @@ export function QuoteBuilder() {
         jobType: state.jobType,
         physicalWidthMm: state.artworkMetrics.widthMm,
         physicalHeightMm: state.artworkMetrics.heightMm,
-        estimate: standardEstimate,
-        thumbnail: `data:image/svg+xml;base64,${btoa(state.fileContent!)}`,
+        estimate: selectedPackage,
+        thumbnail: state.fileContent && state.file.type === 'image/svg+xml' ? `data:image/svg+xml;base64,${btoa(state.fileContent)}` : undefined,
       };
-      await api<Quote>('/api/quotes', {
+      const savedQuote = await api<Quote>('/api/quotes', {
         method: 'POST',
         body: JSON.stringify(quoteData),
         headers: { 'Authorization': `Bearer ${mockAuth.getToken()}` }
       });
-      toast.success('Quote saved!', { description: 'You can view it in your saved quotes list.' });
+      setState(s => ({ ...s, savedQuoteId: savedQuote.id }));
+      toast.success('Quote saved!', { description: 'You can now proceed to checkout.' });
     } catch (error) {
       toast.error('Failed to save quote.');
     } finally {
@@ -102,7 +112,6 @@ export function QuoteBuilder() {
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Filters & Options */}
         <div className="lg:col-span-3 space-y-8">
           <motion.div layout>
             <Card className={step === 1 ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}>
@@ -132,7 +141,6 @@ export function QuoteBuilder() {
             </motion.div>
           )}
         </div>
-        {/* Middle Column: Artwork Preview */}
         <div className="lg:col-span-6 space-y-8">
           <motion.div layout>
             <Card className={step === 2 ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}>
@@ -143,7 +151,15 @@ export function QuoteBuilder() {
           {state.fileContent && (
             <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               <Card>
-                <CardHeader><CardTitle>Artwork Preview</CardTitle></CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Artwork Preview</CardTitle>
+                  {state.material && (
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="kerf-toggle">Kerf View</Label>
+                      <Switch id="kerf-toggle" checked={showKerf} onCheckedChange={setShowKerf} />
+                    </div>
+                  )}
+                </CardHeader>
                 <CardContent>
                   {isLoadingMetrics ? (
                     <Skeleton className="aspect-video w-full" />
@@ -166,11 +182,10 @@ export function QuoteBuilder() {
             </motion.div>
           )}
         </div>
-        {/* Right Column: Pricing */}
         <div className="lg:col-span-3">
           <motion.div layout className="sticky top-24">
             {pricePackages ? (
-              <PriceCard packages={pricePackages} onSaveQuote={handleSaveQuote} isSaving={isSaving} />
+              <PriceCard packages={pricePackages} quoteId={state.savedQuoteId} onSaveQuote={handleSaveQuote} isSaving={isSaving} />
             ) : (
               <Card className="shadow-soft">
                 <CardHeader><CardTitle>Your Quote</CardTitle></CardHeader>
@@ -182,7 +197,7 @@ export function QuoteBuilder() {
           </motion.div>
         </div>
       </div>
-      <LoginModal open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen} onLoginSuccess={handleSaveQuote} />
+      <LoginModal open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen} onLoginSuccess={() => toast.info("Login successful! Please click 'Save Quote' again.")} />
     </>
   );
 }
