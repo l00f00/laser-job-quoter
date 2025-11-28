@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
-import { calculateEstimate, getSvgMetrics, checkManufacturability, getKerfAdjustedMetrics, ArtworkMetrics } from '@/lib/quote-utils';
+import { calculateEstimate, getSvgMetrics, checkManufacturability, getKerfAdjustedMetrics, ArtworkMetrics, processSvgForCut } from '@/lib/quote-utils';
 import type { Material, Quote, PricePackage } from '@shared/types';
 import { Scissors, Brush, Layers, AlertTriangle } from 'lucide-react';
 import { mockAuth } from '@/lib/auth-utils';
@@ -52,11 +52,29 @@ export function QuoteBuilder() {
     setManufacturabilityIssues([]);
     setState(s => ({ ...s, file, fileContent: content, artworkMetrics: undefined, savedQuoteId: undefined }));
     try {
-      const metrics = await getSvgMetrics(content, physicalWidthMm);
-      setState(s => ({ ...s, artworkMetrics: metrics }));
-      toast.success('Artwork analyzed successfully!');
+      if (file.type.includes('svg')) {
+        const metrics = await getSvgMetrics(content, physicalWidthMm);
+        setState(s => ({ ...s, artworkMetrics: metrics }));
+        toast.success('Artwork analyzed successfully!');
+      } else {
+        // For raster images, metrics are simpler
+        const aspectRatio = await new Promise<number>(resolve => {
+          const img = new Image();
+          img.onload = () => resolve(img.height / img.width);
+          img.src = content; // content is data URL for raster
+        });
+        const metrics: ArtworkMetrics = {
+          widthMm: physicalWidthMm,
+          heightMm: physicalWidthMm * aspectRatio,
+          cutLengthMm: 0, // Cannot determine from raster
+          engraveAreaSqMm: physicalWidthMm * (physicalWidthMm * aspectRatio), // Assume full engraving
+          pathComplexity: 1,
+        };
+        setState(s => ({ ...s, artworkMetrics: metrics }));
+        toast.success('Artwork dimensions set!');
+      }
     } catch (error) {
-      toast.error('Failed to analyze SVG', { description: (error as Error).message });
+      toast.error('Failed to analyze artwork', { description: (error as Error).message });
       setState(s => ({ ...s, file: undefined, fileContent: undefined }));
     } finally {
       setIsLoadingMetrics(false);
@@ -106,7 +124,7 @@ export function QuoteBuilder() {
         physicalWidthMm: state.artworkMetrics.widthMm,
         physicalHeightMm: state.artworkMetrics.heightMm,
         estimate: selectedPackage,
-        thumbnail: state.fileContent && state.file.type === 'image/svg+xml' ? `data:image/svg+xml;base64,${btoa(state.fileContent)}` : undefined,
+        thumbnail: state.fileContent && state.file.type.includes('svg') ? `data:image/svg+xml;base64,${btoa(state.fileContent)}` : undefined,
       };
       const savedQuote = await api<Quote>('/api/quotes', {
         method: 'POST',
@@ -121,9 +139,22 @@ export function QuoteBuilder() {
       setIsSaving(false);
     }
   };
+  const processedPreviewSrc = useMemo(() => {
+    if (!state.fileContent || !state.file) return '';
+    if (state.jobType === 'cut' && state.file.type.includes('svg')) {
+      const processedSvg = processSvgForCut(state.fileContent);
+      return `data:image/svg+xml;base64,${btoa(processedSvg)}`;
+    }
+    // For raster or other job types, use original content
+    // Note: UploadDropzone provides data URL for raster, raw text for SVG
+    if (state.file.type.includes('svg')) {
+      return `data:image/svg+xml;base64,${btoa(state.fileContent)}`;
+    }
+    return state.fileContent; // This is already a data URL from UploadDropzone
+  }, [state.fileContent, state.file, state.jobType]);
   const step = !state.material ? 1 : !state.file ? 2 : 3;
   const artworkPreviewStyles = {
-    cut: 'mix-blend-overlay opacity-80',
+    cut: 'mix-blend-normal', // Use normal blend for clear outlines
     engrave: 'mix-blend-multiply opacity-70',
     both: 'mix-blend-normal',
   };
@@ -197,13 +228,10 @@ export function QuoteBuilder() {
                         style={{ backgroundImage: state.material?.textureUrl ? `url(${state.material.textureUrl})` : 'none' }}
                       >
                         <img
-                          src={`data:image/svg+xml;base64,${btoa(state.fileContent)}`}
+                          src={processedPreviewSrc}
                           alt="Artwork preview"
                           loading="lazy"
-                          className={cn("max-h-full max-w-full transition-all duration-300", artworkPreviewStyles[state.jobType])}
-                          style={{
-                            filter: state.jobType === 'cut' ? 'drop-shadow(0 0 1px black)' : 'none',
-                          }}
+                          className={cn("max-h-full max-w-full object-contain transition-all duration-300", artworkPreviewStyles[state.jobType])}
                         />
                          {showKerf && state.material && (
                           <div

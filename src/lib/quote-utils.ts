@@ -136,6 +136,30 @@ export function getSvgMetrics(svgString: string, physicalWidthMm: number): Promi
     }
   });
 }
+export function processSvgForCut(svgString: string): string {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgString, 'image/svg+xml');
+    if (doc.querySelector('parsererror')) {
+      throw new Error('Invalid SVG content');
+    }
+    const elements = doc.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line');
+    elements.forEach(el => {
+      el.setAttribute('fill', 'none');
+      if (!el.hasAttribute('stroke') || el.getAttribute('stroke') === 'none') {
+        el.setAttribute('stroke', 'black');
+      }
+      if (!el.hasAttribute('stroke-width') || el.getAttribute('stroke-width') === '0') {
+        el.setAttribute('stroke-width', '0.5');
+      }
+    });
+    const serializer = new XMLSerializer();
+    return serializer.serializeToString(doc.documentElement);
+  } catch (error) {
+    console.error("Failed to process SVG for cut preview:", error);
+    return svgString; // Fallback to original string on error
+  }
+}
 // Stub for path simplification
 export function simplifiedMetrics(svgString: string, sampleRate: number = 10): Promise<ArtworkMetrics> {
   console.log('Path simplification stub called with sample rate:', sampleRate);
