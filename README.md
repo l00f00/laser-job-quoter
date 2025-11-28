@@ -1,5 +1,5 @@
 # LuxQuote — Laser Job Quoter
-[![[cloudflarebutton]]](https://workers.cloudflare.com)
+[![[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/l00f00/laser-job-quoter)]](https://workers.cloudflare.com)
 LuxQuote is a visually-rich, polished single-page web application for creating instant quotes for laser jobs (cutting, engraving, or both). Users upload raster images or vector SVGs, choose material, thickness, and finish, define whether the job is engraving, cutting, or a combo, and receive multiple price options (fast, standard, premium) with clear breakdowns. The system provides a live preview of the artwork scaled to the chosen physical size, validates critical manufacturability constraints, and computes detailed cost breakdowns. A prominent Help button opens a modal with guided tips and a request-for-help form.
 ## Key Features
 - **Instant Quote Generation**: Upload artwork (PNG/JPG/SVG) and get precise pricing with breakdowns for material, cutting, engraving, setup, and finishing fees.
@@ -110,4 +110,4 @@ Leverage the Cloudflare dashboard for monitoring your application:
 - **Workers & Pages Analytics**: View request counts, CPU time, and invocation metrics.
 - **Logs**: Use `wrangler tail` for real-time logs or view persisted logs in the dashboard to debug issues.
 - **Durable Objects**: Inspect DO storage and metrics directly from the dashboard.
-[![[cloudflarebutton]]](https://workers.cloudflare.com)
+[![[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/l00f00/laser-job-quoter)]](https://workers.cloudflare.com)
