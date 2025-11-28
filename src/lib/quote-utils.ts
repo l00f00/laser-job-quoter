@@ -140,18 +140,16 @@ export function processSvgForCut(svgString: string): string {
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgString, 'image/svg+xml');
-    if (doc.querySelector('parsererror')) {
+    const parserError = doc.querySelector('parsererror');
+    if (parserError) {
+      console.error("SVG parsing error:", parserError.textContent);
       throw new Error('Invalid SVG content');
     }
     const elements = doc.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line');
     elements.forEach(el => {
       el.setAttribute('fill', 'none');
-      if (!el.hasAttribute('stroke') || el.getAttribute('stroke') === 'none') {
-        el.setAttribute('stroke', 'black');
-      }
-      if (!el.hasAttribute('stroke-width') || el.getAttribute('stroke-width') === '0') {
-        el.setAttribute('stroke-width', '0.5');
-      }
+      el.setAttribute('stroke', 'black');
+      el.setAttribute('stroke-width', '0.5');
     });
     const serializer = new XMLSerializer();
     return serializer.serializeToString(doc.documentElement);

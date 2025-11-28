@@ -231,7 +231,10 @@ export function QuoteBuilder() {
                           src={processedPreviewSrc}
                           alt="Artwork preview"
                           loading="lazy"
+                          width={state.artworkMetrics?.widthMm}
+                          height={state.artworkMetrics?.heightMm}
                           className={cn("max-h-full max-w-full object-contain transition-all duration-300", artworkPreviewStyles[state.jobType])}
+                          style={{ imageRendering: 'optimizeQuality' }}
                         />
                          {showKerf && state.material && (
                           <div
