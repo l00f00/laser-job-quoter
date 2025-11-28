@@ -83,7 +83,8 @@ function runSetupCommands() {
     "bun add -D svgo@^3.3.2",
     "bun add stripe@^15.12.0",
     "bun add @stripe/stripe-js@^4.5.0",
-    "bun add stripe @stripe/stripe-js"
+    "bun add stripe @stripe/stripe-js",
+    "bun install react-error-boundary"
 ];
     
     if (commands.length === 0) {
