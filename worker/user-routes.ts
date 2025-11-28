@@ -10,7 +10,6 @@ import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
 import { OrderStatus, type LoginUser, type Quote, type Order, type PricePackage } from "@shared/types";
 import type { D1Database } from "@cloudflare/workers-types";
-import Stripe from 'stripe';
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // --- Auth Routes ---
   app.post('/api/login', async (c) => {
@@ -26,7 +25,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     if (!user) {
       return c.json({ success: false, error: 'Invalid credentials' }, 401);
     }
-    const token = `mock_jwt_${btoa(email + ':' + Date.now())}`;
+    const token = `mock_jwt_${btoa(JSON.stringify(user))}`;
     return ok(c, { user, token });
   });
   // --- LuxQuote Routes ---
@@ -106,43 +105,54 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const estimate = quote.estimate as PricePackage | undefined;
     if (!estimate || !estimate.total) return bad(c, 'Quote has no valid price estimate.');
     const origin = c.req.header('origin') || c.req.url.split('/api')[0];
+    let session: { url: string; id: string; payment_intent: string } | null = null;
+    let error: string | null = null;
     try {
-      // NOTE: In a real application, STRIPE_SECRET_KEY would be a secret in the Cloudflare dashboard.
-      const stripe = new Stripe(c.env.STRIPE_SECRET_KEY || 'sk_test_YOUR_FALLBACK_KEY_HERE', {
-        apiVersion: '2023-10-16', // Use a fixed API version for compatibility
-        httpClient: Stripe.createFetchHttpClient(), // Important for Cloudflare Workers
+      const stripeKey = (c.env as any).STRIPE_SECRET_KEY;
+      if (!stripeKey) throw new Error("Stripe key not configured.");
+      const params = new URLSearchParams();
+      params.append('mode', 'payment');
+      params.append('line_items[0][price_data][currency]', 'usd');
+      params.append('line_items[0][price_data][product_data][name]', `LuxQuote Order for: ${quote.title}`);
+      params.append('line_items[0][price_data][product_data][description]', `Material: ${quote.materialId}, ${quote.thicknessMm}mm`);
+      params.append('line_items[0][price_data][unit_amount]', String(Math.round(estimate.total * 100)));
+      params.append('line_items[0][quantity]', '1');
+      params.append('success_url', `${origin}/quotes?payment=success&session_id={CHECKOUT_SESSION_ID}`);
+      params.append('cancel_url', `${origin}/quote/${quoteId}`);
+      params.append('metadata[quote_id]', quoteId);
+      const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${stripeKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Stripe-Version': '2023-10-16' },
+        body: params.toString(),
       });
-      const session = await stripe.checkout.sessions.create({
-        mode: 'payment',
-        line_items: [
-          {
-            price_data: {
-              currency: 'usd',
-              product_data: {
-                name: `LuxQuote Order for: ${quote.title}`,
-                description: `Material: ${quote.materialId}, ${quote.thicknessMm}mm`,
-              },
-              unit_amount: Math.round(estimate.total * 100), // Amount in cents
-            },
-            quantity: 1,
-          },
-        ],
-        success_url: `${origin}/quotes?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/quote/${quoteId}`,
-        metadata: {
-          quote_id: quoteId,
-        },
-      });
-      if (!session.url) {
-        return bad(c, 'Could not create Stripe session.');
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Stripe API error: ${res.status} ${errText}`);
       }
-      return ok(c, { url: session.url });
+      session = await res.json();
     } catch (e) {
       console.error('Stripe session creation failed:', e);
-      // Fallback to a mock URL if Stripe fails (e.g., key not configured)
-      const mockUrl = `${origin}/quotes?payment=success&session_id=cs_test_mock_${crypto.randomUUID()}`;
-      return ok(c, { url: mockUrl });
+      error = (e as Error).message;
     }
+    if (!session) {
+      session = {
+        url: `${origin}/quotes?payment=success&session_id=cs_test_mock_${crypto.randomUUID()}`,
+        id: `cs_test_mock_${crypto.randomUUID()}`,
+        payment_intent: `pi_mock_${crypto.randomUUID()}`,
+      };
+    }
+    const newOrderData: Order = {
+      id: `order_${crypto.randomUUID()}`,
+      quoteId,
+      userId: 'user_demo_01', // Mocked user ID
+      status: OrderStatus.Pending,
+      submittedAt: Date.now(),
+      paymentStatus: 'mock_pending',
+      stripeSessionId: session.id,
+      paymentIntentId: session.payment_intent,
+    };
+    const newOrder = await OrderEntity.create(c.env, newOrderData);
+    return ok(c, { url: session.url, orderId: newOrder.id, error });
   });
   app.post('/api/stripe/webhook', async (c) => {
     const event = await c.req.json();
@@ -151,10 +161,15 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       const quoteId = session.metadata.quote_id;
       if (quoteId) {
         const allOrders = (await OrderEntity.list(c.env)).items;
-        const orderToUpdate = allOrders.find(o => o.quoteId === quoteId);
+        const orderToUpdate = allOrders.find(o => o.quoteId === quoteId || o.stripeSessionId === session.id);
         if (orderToUpdate) {
           const orderEntity = new OrderEntity(c.env, orderToUpdate.id);
-          await orderEntity.updateStatus(OrderStatus.Paid);
+          await orderEntity.patch({
+            status: OrderStatus.Paid,
+            paymentStatus: 'mock_paid',
+            stripeSessionId: session.id,
+            paymentIntentId: session.payment_intent,
+          });
           console.log(`Order ${orderEntity.id} for quote ${quoteId} marked as paid.`);
         }
       }
@@ -163,20 +178,25 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
   // --- Admin Routes ---
   app.get('/api/admin/orders', async (c) => {
-    if (c.env.DB) {
-      try {
-        const db = c.env.DB as D1Database;
-        const { results } = await db.prepare('SELECT * FROM orders ORDER BY submittedAt DESC').all<Order>();
-        return ok(c, results);
-      } catch (e) {
-        console.error("D1 query for orders failed:", e);
-        // Fallback to DO
-      }
-    }
-    await OrderEntity.ensureSeed(c.env);
     const page = await OrderEntity.list(c.env);
-    const sorted = page.items.sort((a, b) => b.submittedAt - a.submittedAt);
-    return ok(c, sorted);
+    const sorted = page.items.sort((a, b) => b.submittedAt - a.submittedAt).slice(0, 50);
+    const enrichedOrders = await Promise.all(sorted.map(async (order) => {
+      const quoteEntity = new QuoteEntity(c.env, order.quoteId);
+      if (await quoteEntity.exists()) {
+        const quote = await quoteEntity.getState();
+        order.quote = {
+          title: quote.title,
+          materialId: quote.materialId,
+          jobType: quote.jobType,
+          physicalWidthMm: quote.physicalWidthMm,
+          physicalHeightMm: quote.physicalHeightMm,
+          estimate: quote.estimate as PricePackage,
+          thumbnail: quote.thumbnail,
+        };
+      }
+      return order;
+    }));
+    return ok(c, enrichedOrders);
   });
   app.patch('/api/orders/:id', async (c) => {
     const id = c.req.param('id');
@@ -192,23 +212,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     return ok(c, await orderEntity.getState());
   });
   app.get('/api/admin/analytics', async (c) => {
-    if (c.env.DB) {
-      try {
-        const db = c.env.DB as D1Database;
-        const revenueResult = await db.prepare("SELECT SUM(CAST(json_extract(q.estimate, '$.total') AS REAL)) as total FROM orders o JOIN quotes q ON o.quote_id = q.id WHERE o.status = ?1").bind('paid').first<{ total: number }>();
-        const orderCountResult = await db.prepare("SELECT COUNT(*) as count FROM orders").first<{ count: number }>();
-        const materialsResult = await db.prepare("SELECT materialId as name, COUNT(*) as value FROM quotes GROUP BY materialId ORDER BY value DESC LIMIT 5").all<{ name: string, value: number }>();
-        return ok(c, {
-          totalRevenue: revenueResult?.total || 0,
-          orderCount: orderCountResult?.count || 0,
-          topMaterials: materialsResult.results || [],
-        });
-      } catch (e) {
-        console.error("D1 analytics query failed:", e);
-        // Fallback to DO
-      }
-    }
-    // DO-based fallback analytics
     const ordersPage = await OrderEntity.list(c.env);
     const quotesPage = await QuoteEntity.list(c.env);
     const quotesById = new Map(quotesPage.items.map(q => [q.id, q]));

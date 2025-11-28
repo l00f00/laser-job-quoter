@@ -52,7 +52,18 @@ export interface Order {
   paymentStatus: 'mock_pending' | 'mock_paid';
   stripeSessionId?: string;
   paymentIntentId?: string;
+  // Enriched data from the backend
+  quote?: {
+    title: string;
+    materialId: string;
+    jobType: 'cut' | 'engrave' | 'both';
+    physicalWidthMm: number;
+    physicalHeightMm: number;
+    estimate: PricePackage | Record<string, unknown>;
+    thumbnail?: string;
+  };
 }
+export type EnrichedOrder = Required<Order>;
 export interface LoginUser {
   id: string;
   email: string;
