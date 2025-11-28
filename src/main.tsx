@@ -48,37 +48,39 @@ const App = () => {
     }
   }, []);
   return (
+    <React.StrictMode>
       <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <Suspense fallback={<FullPageLoader />}>
-            <Routes>
-              {/* Main application routes */}
-              <Route path="/" element={<HomePage />} />
-              <Route path="/demo" element={<DemoPage />} />
-              {/* Quote routes */}
-              <Route path="/quote" element={<QuotePage />} />
-              <Route path="/quote/:id" element={<QuotePage />} />
-              <Route path="/quotes" element={<QuotesListPage />} />
-              {/* Auth */}
-              <Route path="/login" element={<LoginPage />} />
-              {/* Admin routes */}
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminPage />} />
-                <Route path="orders" element={<AdminOrdersPage />} />
-                <Route path="materials" element={<AdminMaterialsPage />} />
-                <Route path="pricing" element={<AdminPricingPage />} />
-                <Route path="stripe" element={<AdminStripePage />} />
-                <Route path="help-center" element={<AdminHelpCenterPage />} />
-                <Route path="support" element={<AdminSupportPage />} />
-              </Route>
-              {/* Fallback: reuse HomePage for unmatched routes */}
-              <Route path="*" element={<HomePage />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Suspense fallback={<FullPageLoader />}>
+              <Routes>
+                {/* Main application routes */}
+                <Route path="/" element={<HomePage />} />
+                <Route path="/demo" element={<DemoPage />} />
+                {/* Quote routes */}
+                <Route path="/quote" element={<QuotePage />} />
+                <Route path="/quote/:id" element={<QuotePage />} />
+                <Route path="/quotes" element={<QuotesListPage />} />
+                {/* Auth */}
+                <Route path="/login" element={<LoginPage />} />
+                {/* Admin routes */}
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<AdminPage />} />
+                  <Route path="orders" element={<AdminOrdersPage />} />
+                  <Route path="materials" element={<AdminMaterialsPage />} />
+                  <Route path="pricing" element={<AdminPricingPage />} />
+                  <Route path="stripe" element={<AdminStripePage />} />
+                  <Route path="help-center" element={<AdminHelpCenterPage />} />
+                  <Route path="support" element={<AdminSupportPage />} />
+                </Route>
+                {/* Fallback: reuse HomePage for unmatched routes */}
+                <Route path="*" element={<HomePage />} />
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </React.StrictMode>
   );
 };
 export default App;
@@ -97,7 +99,5 @@ if (!window.__REACT_ROOT__) {
   window.__REACT_ROOT__ = ReactDOM.createRoot(rootEl);
 }
 window.__REACT_ROOT__.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <App />
 );
