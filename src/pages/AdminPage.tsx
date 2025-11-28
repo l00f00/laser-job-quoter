@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldCheck, AlertTriangle, Edit, BarChart, CreditCard } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -9,8 +9,17 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { mockAuth } from '@/lib/auth-utils';
 import { OrdersTab } from '@/components/admin/OrdersTab';
-import { AnalyticsTab } from '@/components/admin/AnalyticsTab';
 import { PaymentsTab } from '@/components/admin/PaymentsTab';
+import { Skeleton } from '@/components/ui/skeleton';
+import { motion } from 'framer-motion';
+const LazyAnalyticsTab = lazy(() => import('@/components/admin/AnalyticsTab').then(module => ({ default: module.AnalyticsTab })));
+const AnalyticsFallback = () => (
+  <div className="grid gap-6 md:grid-cols-2">
+    <Skeleton className="h-24 w-full" />
+    <Skeleton className="h-24 w-full" />
+    <div className="md:col-span-2"><Skeleton className="h-80 w-full" /></div>
+  </div>
+);
 export function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(mockAuth.isAuthenticated());
   const [isAdmin, setIsAdmin] = useState(mockAuth.getRole() === 'admin');
@@ -49,9 +58,20 @@ export function AdminPage() {
                 <TabsTrigger value="analytics"><BarChart className="mr-2 h-4 w-4" />Analytics</TabsTrigger>
                 <TabsTrigger value="payments"><CreditCard className="mr-2 h-4 w-4" />Payments</TabsTrigger>
               </TabsList>
-              <TabsContent value="orders" className="mt-6"><OrdersTab /></TabsContent>
-              <TabsContent value="analytics" className="mt-6"><AnalyticsTab /></TabsContent>
-              <TabsContent value="payments" className="mt-6"><PaymentsTab /></TabsContent>
+              <motion.div
+                key="tabs-content"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <TabsContent value="orders" className="mt-6"><OrdersTab /></TabsContent>
+                <TabsContent value="analytics" className="mt-6">
+                  <Suspense fallback={<AnalyticsFallback />}>
+                    <LazyAnalyticsTab />
+                  </Suspense>
+                </TabsContent>
+                <TabsContent value="payments" className="mt-6"><PaymentsTab /></TabsContent>
+              </motion.div>
             </Tabs>
           )}
         </div>

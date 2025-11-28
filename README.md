@@ -29,100 +29,54 @@ LuxQuote is a visually-rich, polished single-page web application for creating i
 1. Start the frontend dev server: `bun run dev`
 2. In a separate terminal, start the Cloudflare Worker: `wrangler dev`
 3. Open `http://localhost:3000` in your browser.
-## Authentication
-LuxQuote uses mock authentication for demo purposes.
-### Credentials
-- **User**: `email: demo@luxquote.com`, `password: demo123` (role: user)
-- **Admin**: `email: admin@luxquote.com`, `password: admin123` (role: admin)
-### API Login
-Log in programmatically by sending a POST request to `/api/login`.
-**Request:**
-```json
-{
-  "email": "demo@luxquote.com",
-  "password": "demo123"
-}
-```
-**Success Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "user": {
-      "id": "user_demo_01",
-      "email": "demo@luxquote.com",
-      "name": "Demo User",
-      "role": "user"
-    },
-    "token": "mock_jwt_..."
-  }
-}
-```
-Tokens are stored in `localStorage` (`luxquote_auth_token`, `luxquote_user`) for session persistence.
-## Admin Dashboard
-The admin dashboard is a role-protected area for managing the application.
-- **Access**: Navigate to `/admin` after logging in with an admin account. Non-admin users will see an "Access Denied" message.
-- **Features**:
-  - **Orders Tab**: View a table of all submitted orders. You can edit the status of each order (e.g., from `pending` to `processing` or `shipped`).
-  - **Analytics Tab**: View key metrics like total revenue and total order count. A pie chart visualizes the most popular materials used in quotes.
-  - **Payments Tab**: See a list of orders with their payment status and links to the corresponding Stripe payment details.
-## Quote Editing
-Saved quotes can be easily modified.
-1.  Navigate to `/quotes` to see your list of saved quotes.
-2.  Click the "Edit" button on any quote card.
-3.  This will take you to `/quote/:id`, where the Quote Builder will be pre-filled with all the data from that quote.
-4.  You can change the material, job type, or even upload a new design.
-5.  Click "Update Quote" to save your changes via a `PUT` request to `/api/quotes/:id`.
-## Backend Persistence (Hybrid DO + D1)
-The application uses a hybrid model for persistence, leveraging both Durable Objects (DO) for high-frequency writes and D1 for relational queries and analytics.
-- **D1 Integration: Optional.** The worker's types have been extended with `DB?: D1Database`. The code uses type guards like `if (env.DB)` to safely access D1 features when the binding is present, falling back to DO-based logic otherwise. This prevents TypeScript errors and allows the application to run without a D1 database configured.
-- **Durable Objects**: Used for creating and updating individual quotes and orders, providing strong consistency per object.
-- **Cloudflare D1**: A SQL database used for listing orders and running analytical queries across all data, which is difficult with DOs alone.
-### D1 Setup (Manual)
-To enable D1-powered features, you need to set up a D1 database and bind it to the worker.
-1.  **Create the D1 Database**:
-    ```bash
-    wrangler d1 create luxquote-db
-    ```
-2.  **Bind the Database in `wrangler.jsonc`**:
-    Add the following to your `wrangler.jsonc` file. Replace `<YOUR_DATABASE_ID>` with the ID from the previous step.
-    ```json
-    "d1_databases": [
-      {
-        "binding": "DB",
-        "database_name": "luxquote-db",
-        "database_id": "<YOUR_DATABASE_ID>"
-      }
-    ]
-    ```
-3.  **Create Schema**:
-    Create a file `schema.sql` and run `wrangler d1 execute luxquote-db --file=schema.sql`.
-    ```sql
-    -- schema.sql
-    CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE, name TEXT, role TEXT);
-    CREATE TABLE quotes (id TEXT PRIMARY KEY, user_id TEXT, title TEXT, material_id TEXT, thickness_mm REAL, job_type TEXT, physical_width_mm REAL, physical_height_mm REAL, estimate TEXT, thumbnail TEXT, status TEXT, created_at INTEGER, FOREIGN KEY(user_id) REFERENCES users(id));
-    CREATE TABLE orders (id TEXT PRIMARY KEY, quote_id TEXT, user_id TEXT, status TEXT, submitted_at INTEGER, payment_status TEXT, stripe_session_id TEXT, payment_intent_id TEXT, FOREIGN KEY(quote_id) REFERENCES quotes(id), FOREIGN KEY(user_id) REFERENCES users(id));
-    ```
-4.  **Migrate Data (Optional)**:
-    To move existing data from DOs to D1, you would need a custom script to read from DOs and `INSERT` into D1.
-## Stripe Integration
-- **Checkout**: Clicking "Pay with Stripe" sends a POST request to `/api/orders/stripe`, which creates a mock Stripe Checkout session and redirects the user.
-- **Webhook**: A mock webhook endpoint at `/api/stripe/webhook` listens for `checkout.session.completed` events to update an order's status to `paid`.
-## Testing the Application
+## Testing the Application (End-to-End Flow)
 1.  **Login as User**: Use `demo@luxquote.com` / `demo123`.
 2.  **Create a Quote**: Go to `/quote`, upload a design, select a material, and click "Save Quote".
 3.  **View Saved Quotes**: Navigate to `/quotes` to see your saved project.
 4.  **Edit a Quote**: Click "Edit" on the quote card, make a change, and click "Update Quote".
-5.  **Checkout**: From the quote builder, click "Pay with Stripe" to simulate the checkout flow.
+5.  **Checkout**: From the quote builder, click "Pay with Stripe" to simulate the checkout flow. You will be redirected to a mock success page.
 6.  **Login as Admin**: Log out and log back in with `admin@luxquote.com` / `admin123`.
 7.  **Admin View**: Go to `/admin`.
-    - In the **Orders** tab, find the order you created and change its status.
+    - In the **Orders** tab, find the order you created and change its status from `pending` to `processing`.
     - In the **Analytics** tab, observe the updated revenue and material stats.
-    - In the **Payments** tab, view the payment status.
+    - In the **Payments** tab, view the payment status and link to the mock Stripe session.
 8.  **Verify No Type Errors**: Run `bun run build && tsc --noEmit` to confirm the project is type-safe.
-## Deployment
+## Production Deployment
 Deploy to Cloudflare Workers for global edge performance.
-1.  Login to Wrangler: `wrangler login`
-2.  Build the project: `bun run build`
-3.  Deploy: `wrangler deploy`
+1.  **Login to Wrangler**: `wrangler login`
+2.  **Configure Production Secrets**:
+    Set your Stripe secret key in your production environment. **Never commit secrets to `wrangler.jsonc`**.
+    ```bash
+    wrangler secret put STRIPE_SECRET_KEY
+    ```
+    For webhook security, also set your webhook signing secret:
+    ```bash
+    wrangler secret put STRIPE_WEBHOOK_SECRET
+    ```
+3.  **Build the project**: `bun run build`
+4.  **Deploy**: `wrangler deploy`
+## Production Notes
+### Webhook Security
+The provided `/api/stripe/webhook` endpoint is a mock. For production, you must verify the Stripe signature to prevent fraudulent requests. In `worker/user-routes.ts`, you would implement:
+```typescript
+// Example of a secure webhook handler
+const signature = c.req.header('stripe-signature');
+const secret = c.env.STRIPE_WEBHOOK_SECRET;
+const body = await c.req.text();
+try {
+  const event = await stripe.webhooks.constructEvent(body, signature, secret);
+  // Handle event...
+} catch (err) {
+  return c.text('Webhook Error', 400);
+}
+```
+### Scaling with D1
+The application uses Durable Objects for quote and order storage, which is great for individual object consistency. For larger-scale analytics and relational queries, migrating to Cloudflare D1 is recommended.
+- **Hybrid Model**: The app is built to support a hybrid DO + D1 model. If a `DB` binding is present in `wrangler.jsonc`, certain routes can be enhanced to use it.
+- **Full Migration**: For a full migration, you would write a one-time script to read all data from the `GlobalDurableObject` and `INSERT` it into your D1 tables. Afterwards, all entity methods (`create`, `list`, `patch`) in `worker/entities.ts` would be rewritten to use D1 queries exclusively.
+### Monitoring
+Leverage the Cloudflare dashboard for monitoring your application:
+- **Workers & Pages Analytics**: View request counts, CPU time, and invocation metrics.
+- **Logs**: Use `wrangler tail` for real-time logs or view persisted logs in the dashboard to debug issues.
+- **Durable Objects**: Inspect DO storage and metrics directly from the dashboard.
 [![[cloudflarebutton]]](https://workers.cloudflare.com)

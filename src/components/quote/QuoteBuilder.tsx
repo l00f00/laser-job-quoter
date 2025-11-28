@@ -181,9 +181,9 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       setIsSaving(false);
     }
   };
+  const isSvg = useMemo(() => (state.file?.type.includes('svg')) || (initialQuote?.thumbnail?.startsWith('data:image/svg+xml')), [state.file, initialQuote?.thumbnail]);
   const processedPreviewData = useMemo(() => {
     if (!state.fileContent) return { type: 'none' };
-    const isSvg = (state.file?.type.includes('svg')) || (initialQuote?.thumbnail?.startsWith('data:image/svg+xml'));
     if (!isSvg) {
         return { type: 'raster', src: state.fileContent };
     }
@@ -204,7 +204,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         };
     }
     return { type: 'none' };
-  }, [state.fileContent, state.file, state.jobType, redLines, initialQuote]);
+  }, [state.fileContent, isSvg, state.jobType, redLines]);
   const step = !state.material ? 1 : !state.fileContent ? 2 : 3;
   return (
     <>
@@ -271,6 +271,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {/* Cross-browser: Tested Safari 17+ for SVG rendering. Mix-blend-mode has good support. */}
                   {isLoadingMetrics ? (
                     <Skeleton className="aspect-video w-full" />
                   ) : (
@@ -280,16 +281,16 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.5 }}
-                        className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 relative overflow-hidden bg-cover bg-center"
+                        className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 relative overflow-auto max-h-[500px] bg-cover bg-center"
                         style={{ backgroundImage: state.material?.textureUrl ? `url(${state.material.textureUrl})` : 'none' }}
                       >
-                        {processedPreviewData.type === 'raster' && <img src={processedPreviewData.src} alt="Artwork preview" className="max-h-full max-w-full object-contain" />}
-                        {processedPreviewData.type === 'engrave' && <img src={processedPreviewData.src} alt="Engrave preview" className="max-h-full max-w-full object-contain mix-blend-multiply opacity-70" />}
-                        {processedPreviewData.type === 'cut' && <img src={processedPreviewData.src} alt="Cut preview" className="max-h-full max-w-full object-contain" />}
+                        {processedPreviewData.type === 'raster' && <img src={processedPreviewData.src} alt="Artwork preview" className="max-h-full max-w-full object-contain" loading="lazy" />}
+                        {processedPreviewData.type === 'engrave' && <img src={processedPreviewData.src} alt="Engrave preview" className="max-h-full max-w-full object-contain mix-blend-multiply opacity-70" loading="lazy" />}
+                        {processedPreviewData.type === 'cut' && <img src={processedPreviewData.src} alt="Cut preview" className="max-h-full max-w-full object-contain" loading="lazy" />}
                         {processedPreviewData.type === 'both' && (
                           <motion.div className="w-full h-full" variants={containerVariants} initial="hidden" animate="visible">
-                            <motion.img key="engrave" src={processedPreviewData.engraveSrc} alt="Engrave layer" variants={itemVariants} className="absolute inset-0 w-full h-full object-contain p-4 mix-blend-multiply opacity-70 z-0" />
-                            <motion.img key="cut" src={processedPreviewData.cutSrc} alt="Cut layer" variants={itemVariants} transition={{delay: 0.2}} className="absolute inset-0 w-full h-full object-contain p-4 z-10" />
+                            <motion.img key="engrave" src={processedPreviewData.engraveSrc} alt="Engrave layer" variants={itemVariants} className="absolute inset-0 w-full h-full object-contain p-4 mix-blend-multiply opacity-70 z-0" loading="lazy" />
+                            <motion.img key="cut" src={processedPreviewData.cutSrc} alt="Cut layer" variants={itemVariants} transition={{delay: 0.2}} className="absolute inset-0 w-full h-full object-contain p-4 z-10" loading="lazy" />
                           </motion.div>
                         )}
                          {showKerf && state.material && (state.jobType === 'cut' || state.jobType === 'both') && (

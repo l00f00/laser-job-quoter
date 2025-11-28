@@ -102,3 +102,4 @@ export function QuotesListPage() {
     </AppLayout>
   );
 }
+export default QuotesListPage;

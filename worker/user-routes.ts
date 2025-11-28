@@ -155,6 +155,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     return ok(c, { url: session.url, orderId: newOrder.id, error });
   });
   app.post('/api/stripe/webhook', async (c) => {
+    // In production, you would verify the webhook signature here using c.env.STRIPE_WEBHOOK_SECRET
+    // For this demo, we trust the incoming event.
     const event = await c.req.json();
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;

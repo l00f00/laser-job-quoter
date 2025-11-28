@@ -107,7 +107,7 @@ export function OrdersTab() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      className="hover:bg-muted/50"
+                      className="hover:bg-accent/50 transition-colors"
                     >
                       <TableCell>
                         {order.quote?.thumbnail ? (
