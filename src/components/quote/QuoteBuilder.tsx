@@ -18,6 +18,7 @@ import { Scissors, Brush, Layers, AlertTriangle } from 'lucide-react';
 import { mockAuth } from '@/lib/auth-utils';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
 type QuoteState = {
   file?: File;
   fileContent?: string;
@@ -27,6 +28,10 @@ type QuoteState = {
   jobType: 'cut' | 'engrave' | 'both';
   savedQuoteId?: string;
 };
+interface QuoteBuilderProps {
+  editMode?: boolean;
+  initialQuote?: Quote;
+}
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -40,7 +45,7 @@ const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
 };
-export function QuoteBuilder() {
+export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderProps) {
   const [state, setState] = useState<QuoteState>({ jobType: 'cut' });
   const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -48,27 +53,52 @@ export function QuoteBuilder() {
   const [manufacturabilityIssues, setManufacturabilityIssues] = useState<string[]>([]);
   const [showKerf, setShowKerf] = useState(false);
   const [redLines, setRedLines] = useState(false);
+  const { data: materials } = useQuery<Material[]>({ queryKey: ['materials'], queryFn: () => api('/api/materials') });
+  useEffect(() => {
+    if (editMode && initialQuote && materials) {
+      const material = materials.find(m => m.id === initialQuote.materialId);
+      const fileContent = initialQuote.thumbnail ? atob(initialQuote.thumbnail.split(',')[1]) : undefined;
+      setState({
+        jobType: initialQuote.jobType,
+        material,
+        thicknessMm: initialQuote.thicknessMm,
+        savedQuoteId: initialQuote.id,
+        fileContent,
+        artworkMetrics: {
+          widthMm: initialQuote.physicalWidthMm,
+          heightMm: initialQuote.physicalHeightMm,
+          cutLengthMm: 0, // Recalculate
+          engraveAreaSqMm: 0, // Recalculate
+          pathComplexity: 0,
+        },
+      });
+      if (fileContent) {
+        getSvgMetrics(fileContent, initialQuote.physicalWidthMm).then(metrics => {
+          setState(s => ({ ...s, artworkMetrics: metrics }));
+        });
+      }
+    }
+  }, [editMode, initialQuote, materials]);
   const handleFileAccepted = async (file: File, content: string, physicalWidthMm: number) => {
     setIsLoadingMetrics(true);
     setManufacturabilityIssues([]);
-    setState(s => ({ ...s, file, fileContent: content, artworkMetrics: undefined, savedQuoteId: undefined }));
+    setState(s => ({ ...s, file, fileContent: content, artworkMetrics: undefined }));
     try {
       if (file.type.includes('svg')) {
         const metrics = await getSvgMetrics(content, physicalWidthMm);
         setState(s => ({ ...s, artworkMetrics: metrics }));
         toast.success('Artwork analyzed successfully!');
       } else {
-        // For raster images, metrics are simpler
         const aspectRatio = await new Promise<number>(resolve => {
           const img = new Image();
           img.onload = () => resolve(img.height / img.width);
-          img.src = content; // content is data URL for raster
+          img.src = content;
         });
         const metrics: ArtworkMetrics = {
           widthMm: physicalWidthMm,
           heightMm: physicalWidthMm * aspectRatio,
-          cutLengthMm: 0, // Cannot determine from raster
-          engraveAreaSqMm: physicalWidthMm * (physicalWidthMm * aspectRatio), // Assume full engraving
+          cutLengthMm: 0,
+          engraveAreaSqMm: physicalWidthMm * (physicalWidthMm * aspectRatio),
           pathComplexity: 1,
         };
         setState(s => ({ ...s, artworkMetrics: metrics }));
@@ -111,53 +141,62 @@ export function QuoteBuilder() {
       setIsLoginModalOpen(true);
       return;
     }
-    if (!state.file || !state.material || !state.artworkMetrics || !pricePackages) {
+    if (!state.material || !state.artworkMetrics || !pricePackages) {
       toast.error("Please complete all steps before saving.");
       return;
     }
     setIsSaving(true);
     try {
       const quoteData: Partial<Quote> = {
-        title: state.file.name,
+        title: state.file?.name || initialQuote?.title || 'Untitled Quote',
         materialId: state.material.id,
         thicknessMm: state.thicknessMm,
         jobType: state.jobType,
         physicalWidthMm: state.artworkMetrics.widthMm,
         physicalHeightMm: state.artworkMetrics.heightMm,
         estimate: selectedPackage,
-        thumbnail: state.fileContent && state.file.type.includes('svg') ? `data:image/svg+xml;base64,${btoa(state.fileContent)}` : undefined,
+        thumbnail: state.fileContent ? `data:image/svg+xml;base64,${btoa(state.fileContent)}` : initialQuote?.thumbnail,
       };
-      const savedQuote = await api<Quote>('/api/quotes', {
-        method: 'POST',
-        body: JSON.stringify(quoteData),
-        headers: { 'Authorization': `Bearer ${mockAuth.getToken()}` }
-      });
-      setState(s => ({ ...s, savedQuoteId: savedQuote.id }));
-      toast.success('Quote saved!', { description: 'You can now proceed to checkout.' });
+      if (editMode && state.savedQuoteId) {
+        const updatedQuote = await api<Quote>(`/api/quotes/${state.savedQuoteId}`, {
+          method: 'PUT',
+          body: JSON.stringify(quoteData),
+          headers: { 'Authorization': `Bearer ${mockAuth.getToken()}` }
+        });
+        setState(s => ({ ...s, savedQuoteId: updatedQuote.id }));
+        toast.success('Quote updated successfully!');
+      } else {
+        const savedQuote = await api<Quote>('/api/quotes', {
+          method: 'POST',
+          body: JSON.stringify(quoteData),
+          headers: { 'Authorization': `Bearer ${mockAuth.getToken()}` }
+        });
+        setState(s => ({ ...s, savedQuoteId: savedQuote.id }));
+        toast.success('Quote saved!', { description: 'You can now proceed to checkout.' });
+      }
     } catch (error) {
-      toast.error('Failed to save quote.');
+      toast.error(`Failed to ${editMode ? 'update' : 'save'} quote.`);
     } finally {
       setIsSaving(false);
     }
   };
   const processedPreviewSrc = useMemo(() => {
-    if (!state.fileContent || !state.file) return '';
-    if (state.jobType === 'cut' && state.file.type.includes('svg')) {
+    if (!state.fileContent) return '';
+    const isSvg = (state.file?.type.includes('svg')) || (initialQuote?.thumbnail?.startsWith('data:image/svg+xml'));
+    if (state.jobType === 'cut' && isSvg) {
       const processedSvg = processSvgForCut(state.fileContent, redLines ? 'red' : 'black');
       const base64 = btoa(unescape(encodeURIComponent(processedSvg)));
       return `data:image/svg+xml;base64,${base64}`;
     }
-    // For raster or other job types, use original content
-    // Note: UploadDropzone provides data URL for raster, raw text for SVG
-    if (state.file.type.includes('svg')) {
+    if (isSvg) {
       const base64 = btoa(unescape(encodeURIComponent(state.fileContent)));
       return `data:image/svg+xml;base64,${base64}`;
     }
-    return state.fileContent; // This is already a data URL from UploadDropzone
-  }, [state.fileContent, state.file, state.jobType, redLines]);
-  const step = !state.material ? 1 : !state.file ? 2 : 3;
+    return state.fileContent;
+  }, [state.fileContent, state.file, state.jobType, redLines, initialQuote]);
+  const step = !state.material ? 1 : !state.fileContent ? 2 : 3;
   const artworkPreviewStyles = {
-    cut: 'mix-blend-normal', // Use normal blend for clear outlines
+    cut: 'mix-blend-normal',
     engrave: 'mix-blend-multiply opacity-70',
     both: 'mix-blend-normal',
   };
@@ -274,7 +313,7 @@ export function QuoteBuilder() {
         <div className="lg:col-span-3">
           <motion.div layout variants={itemVariants} className="sticky top-24">
             {pricePackages ? (
-              <PriceCard packages={pricePackages} quoteId={state.savedQuoteId} onSaveQuote={handleSaveQuote} isSaving={isSaving} />
+              <PriceCard packages={pricePackages} quoteId={state.savedQuoteId} onSaveQuote={handleSaveQuote} isSaving={isSaving} isEditMode={editMode} />
             ) : (
               <Card className="shadow-soft">
                 <CardHeader><CardTitle>Your Quote</CardTitle></CardHeader>

@@ -1,11 +1,16 @@
 import { Hono } from "hono";
+import Stripe from 'stripe';
 import type { Env } from './core-utils';
 import { UserEntity, ChatBoardEntity, QuoteEntity, OrderEntity } from "./entities";
 import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
 import { OrderStatus } from "@shared/types";
-import type { Quote, Order } from "@shared/types";
+import type { Quote, Order, PricePackage } from "@shared/types";
+// This is a mock. In a real app, use secrets.
+const STRIPE_SECRET_KEY = 'sk_test_51...'; // Replace with a valid test key if you have one
+const STRIPE_WEBHOOK_SECRET = 'whsec_...'; // Replace with a valid webhook secret
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
+  const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
   // --- LuxQuote Routes ---
   app.get('/api/materials', (c) => {
     return ok(c, MOCK_MATERIALS);
@@ -26,10 +31,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     return ok(c, quote);
   });
   app.post('/api/quotes', async (c) => {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer mock_token')) {
-      console.warn('Auth header missing or invalid for POST /api/quotes');
-    }
     const body = (await c.req.json()) as Partial<Quote>;
     if (!body.materialId || !body.estimate) {
       return bad(c, 'Missing required quote data');
@@ -50,10 +51,19 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const created = await QuoteEntity.create(c.env, newQuote);
     return ok(c, created);
   });
-  // --- Order Routes ---
+  app.put('/api/quotes/:id', async (c) => {
+    const id = c.req.param('id');
+    const body = (await c.req.json()) as Partial<Quote>;
+    const quoteEntity = new QuoteEntity(c.env, id);
+    if (!(await quoteEntity.exists())) {
+      return notFound(c, 'Quote not found');
+    }
+    await quoteEntity.patch(body);
+    const updatedQuote = await quoteEntity.getState();
+    return ok(c, updatedQuote);
+  });
+  // --- Order & Stripe Routes ---
   app.post('/api/orders', async (c) => {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader) return c.json({ success: false, error: 'Unauthorized' }, 401);
     const { quoteId } = (await c.req.json()) as { quoteId: string };
     if (!quoteId) return bad(c, 'quoteId is required');
     const quote = new QuoteEntity(c.env, quoteId);
@@ -69,14 +79,101 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const created = await OrderEntity.create(c.env, newOrder);
     return ok(c, created);
   });
+  app.post('/api/orders/stripe', async (c) => {
+    const { quoteId } = (await c.req.json()) as { quoteId: string };
+    if (!quoteId) return bad(c, 'quoteId is required');
+    const quoteEntity = new QuoteEntity(c.env, quoteId);
+    if (!(await quoteEntity.exists())) return notFound(c, 'Quote not found');
+    const quote = await quoteEntity.getState();
+    const estimate = quote.estimate as PricePackage | undefined;
+    if (!estimate || !estimate.total) return bad(c, 'Quote has no valid price estimate.');
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: { name: quote.title, description: `Laser job quote: ${quote.id}` },
+            unit_amount: Math.round(estimate.total * 100),
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${c.req.url.split('/api')[0]}/quotes?payment=success`,
+        cancel_url: `${c.req.url.split('/api')[0]}/quote/${quote.id}?payment=cancelled`,
+        metadata: { quote_id: quote.id },
+      });
+      return ok(c, { id: session.id, url: session.url });
+    } catch (e) {
+      console.error("Stripe session creation failed:", e);
+      return bad(c, (e as Error).message);
+    }
+  });
+  app.post('/api/stripe/webhook', async (c) => {
+    // This is a simplified webhook for demo purposes.
+    // A real implementation would verify the Stripe signature.
+    const event = await c.req.json();
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const quoteId = session.metadata.quote_id;
+      if (quoteId) {
+        // Find order by quoteId
+        const allOrders = (await OrderEntity.list(c.env)).items;
+        const orderToUpdate = allOrders.find(o => o.quoteId === quoteId);
+        if (orderToUpdate) {
+          const orderEntity = new OrderEntity(c.env, orderToUpdate.id);
+          await orderEntity.updateStatus(OrderStatus.Paid);
+          console.log(`Order ${orderEntity.id} for quote ${quoteId} marked as paid.`);
+        }
+      }
+    }
+    return ok(c, { received: true });
+  });
+  // --- Admin Routes ---
   app.get('/api/admin/orders', async (c) => {
-    // In a real app, this would be a proper admin role check
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader) return c.json({ success: false, error: 'Unauthorized' }, 401);
     await OrderEntity.ensureSeed(c.env);
     const page = await OrderEntity.list(c.env);
     const sorted = page.items.sort((a, b) => b.submittedAt - a.submittedAt);
     return ok(c, sorted);
+  });
+  app.patch('/api/orders/:id', async (c) => {
+    const id = c.req.param('id');
+    const { status } = (await c.req.json()) as { status: OrderStatus };
+    if (!status || !Object.values(OrderStatus).includes(status)) {
+      return bad(c, 'Invalid status provided');
+    }
+    const orderEntity = new OrderEntity(c.env, id);
+    if (!(await orderEntity.exists())) {
+      return notFound(c, 'Order not found');
+    }
+    await orderEntity.updateStatus(status);
+    return ok(c, await orderEntity.getState());
+  });
+  app.get('/api/admin/analytics', async (c) => {
+    const ordersPage = await OrderEntity.list(c.env);
+    const quotesPage = await QuoteEntity.list(c.env);
+    const quotesById = new Map(quotesPage.items.map(q => [q.id, q]));
+    const orders = ordersPage.items;
+    const totalRevenue = orders
+      .filter(o => o.status === 'paid')
+      .reduce((sum, o) => {
+        const quote = quotesById.get(o.quoteId);
+        const total = (quote?.estimate as PricePackage)?.total || 0;
+        return sum + total;
+      }, 0);
+    const materialCounts = quotesPage.items.reduce((acc, quote) => {
+      acc[quote.materialId] = (acc[quote.materialId] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const topMaterials = Object.entries(materialCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+    return ok(c, {
+      totalRevenue,
+      orderCount: orders.length,
+      topMaterials,
+    });
   });
   // --- Template Demo Routes (can be removed later) ---
   app.get('/api/users', async (c) => {

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { FileText, Copy, Download, AlertTriangle } from 'lucide-react';
+import { FileText, Copy, Download, AlertTriangle, Edit } from 'lucide-react';
 import { exportQuoteCSV } from '@/lib/export-utils';
 import { duplicateQuote } from '@/lib/quote-actions';
 import { Link } from 'react-router-dom';
@@ -108,9 +108,12 @@ export function QuotesList() {
                     <span className="text-2xl font-bold font-display">${estimate?.total?.toFixed(2) ?? 'N/A'}</span>
                   </div>
                 </CardContent>
-                <CardFooter className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" onClick={() => handleDuplicate(quote)}><Copy className="mr-2 h-4 w-4" /> Duplicate</Button>
-                  <Button variant="outline" onClick={() => exportQuoteCSV(quote)}><Download className="mr-2 h-4 w-4" /> Export CSV</Button>
+                <CardFooter className="grid grid-cols-3 gap-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to={`/quote/${quote.id}`}><Edit className="mr-2 h-4 w-4" /> Edit</Link>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleDuplicate(quote)}><Copy className="mr-2 h-4 w-4" /> Duplicate</Button>
+                  <Button variant="outline" size="sm" onClick={() => exportQuoteCSV(quote)}><Download className="mr-2 h-4 w-4" /> Export</Button>
                 </CardFooter>
               </Card>
             </motion.div>

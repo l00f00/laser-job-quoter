@@ -6,6 +6,7 @@ export interface ApiResponse<T = unknown> {
 // --- LuxQuote Types ---
 export enum OrderStatus {
   Pending = 'pending',
+  Processing = 'processing',
   Paid = 'paid',
   Shipped = 'shipped',
 }
@@ -49,11 +50,14 @@ export interface Order {
   status: OrderStatus;
   submittedAt: number;
   paymentStatus: 'mock_pending' | 'mock_paid';
+  stripeSessionId?: string;
+  paymentIntentId?: string;
 }
 export interface LoginUser {
   id: string;
   email: string;
   name: string;
+  role?: 'user' | 'admin';
 }
 // --- Template Demo Types (can be removed later) ---
 export interface User {

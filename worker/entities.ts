@@ -63,9 +63,17 @@ export class OrderEntity extends IndexedEntity<Order> {
     status: OrderStatus.Pending,
     submittedAt: 0,
     paymentStatus: 'mock_pending',
+    stripeSessionId: '',
+    paymentIntentId: '',
   };
   static seedData = [];
   async updatePaymentStatus(status: 'mock_paid'): Promise<void> {
     await this.patch({ paymentStatus: status, status: OrderStatus.Paid });
+  }
+  async updateStripeSession(sessionId: string, intentId: string): Promise<void> {
+    await this.patch({ stripeSessionId: sessionId, paymentIntentId: intentId });
+  }
+  async updateStatus(status: OrderStatus): Promise<void> {
+    await this.patch({ status });
   }
 }

@@ -29,7 +29,7 @@ const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
   },
   {
-    path: "/quote",
+    path: "/quote/:id?",
     element: <QuotePage />,
     errorElement: <RouteErrorBoundary />,
   },
