@@ -11,6 +11,7 @@ export const MOCK_MATERIALS: Material[] = [
     minFeatureMm: 0.5,
     thicknessesMm: [1.5, 3, 6],
     thumbnailUrl: 'https://images.unsplash.com/photo-1614154118323-35613f355910?q=80&w=800&auto=format&fit=crop',
+    textureUrl: 'https://images.unsplash.com/photo-1608043152266-59fe78cb199a?q=80&w=400&fit=crop', // Frosted glass
   },
   {
     id: 'mat_birch_ply_3mm',
@@ -22,6 +23,7 @@ export const MOCK_MATERIALS: Material[] = [
     minFeatureMm: 0.8,
     thicknessesMm: [3, 6],
     thumbnailUrl: 'https://images.unsplash.com/photo-1595934621923-316f6008a8a4?q=80&w=800&auto=format&fit=crop',
+    textureUrl: 'https://images.unsplash.com/photo-1552590633-27e48a7a3123?q=80&w=400&fit=crop', // Wood grain
   },
   {
     id: 'mat_mdf_3mm',
@@ -33,6 +35,7 @@ export const MOCK_MATERIALS: Material[] = [
     minFeatureMm: 1.0,
     thicknessesMm: [3, 6, 12],
     thumbnailUrl: 'https://images.unsplash.com/photo-1523568943349-65d8a10da3ea?q=80&w=800&auto=format&fit=crop',
+    textureUrl: 'https://images.unsplash.com/photo-1563299796-b729d0af58a5?q=80&w=400&fit=crop', // Cork/MDF texture
   },
   {
     id: 'mat_delrin_black_6mm',
@@ -44,6 +47,31 @@ export const MOCK_MATERIALS: Material[] = [
     minFeatureMm: 0.4,
     thicknessesMm: [1.5, 3, 6],
     thumbnailUrl: 'https://images.unsplash.com/photo-1609503221888-91580335f288?q=80&w=800&auto=format&fit=crop',
+    textureUrl: 'https://images.unsplash.com/photo-1588392382313-264ba344a1f7?q=80&w=400&fit=crop', // Dark texture
+  },
+  {
+    id: 'mat_aluminum_brushed_2mm',
+    name: 'Brushed Aluminum',
+    description: 'Metallic finish for industrial parts.',
+    colorSwatch: '#C0C0C0',
+    costPerSqMm: 0.0015,
+    kerfMm: 0.12,
+    minFeatureMm: 0.6,
+    thicknessesMm: [1, 2, 3],
+    thumbnailUrl: 'https://images.unsplash.com/photo-1541781774459-c849f6d6afce?q=80&w=800',
+    textureUrl: 'https://images.unsplash.com/photo-1585384319462-37f2f0f2e81d?q=80&w=400&fit=crop', // Brushed metal
+  },
+  {
+    id: 'mat_leather_brown_2mm',
+    name: 'Brown Leather',
+    description: 'Premium material for custom goods.',
+    colorSwatch: '#8B4513',
+    costPerSqMm: 0.002,
+    kerfMm: 0.18,
+    minFeatureMm: 0.7,
+    thicknessesMm: [1.5, 2, 3],
+    thumbnailUrl: 'https://images.unsplash.com/photo-1608251547732-c378d79c2db5?q=80&w=800',
+    textureUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=400&fit=crop', // Leather grain
   },
 ];
 export const MOCK_QUOTES: Quote[] = [

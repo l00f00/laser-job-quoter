@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { UploadDropzone } from './UploadDropzone';
 import { MaterialSelector } from './MaterialSelector';
 import { PriceCard } from './PriceCard';
@@ -9,15 +9,15 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { calculateEstimate, getSvgMetrics, checkManufacturability, getKerfAdjustedMetrics, ArtworkMetrics } from '@/lib/quote-utils';
 import type { Material, Quote, PricePackage } from '@shared/types';
-import { Scissors, Brush, Layers, AlertTriangle, Sparkles } from 'lucide-react';
+import { Scissors, Brush, Layers, AlertTriangle } from 'lucide-react';
 import { mockAuth } from '@/lib/auth-utils';
 import { LoginModal } from '@/components/auth/LoginModal';
+import { cn } from '@/lib/utils';
 type QuoteState = {
   file?: File;
   fileContent?: string;
@@ -109,6 +109,11 @@ export function QuoteBuilder() {
     }
   };
   const step = !state.material ? 1 : !state.file ? 2 : 3;
+  const artworkPreviewStyles = {
+    cut: 'mix-blend-overlay opacity-80',
+    engrave: 'mix-blend-multiply opacity-70',
+    both: 'mix-blend-normal',
+  };
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -164,9 +169,31 @@ export function QuoteBuilder() {
                   {isLoadingMetrics ? (
                     <Skeleton className="aspect-video w-full" />
                   ) : (
-                    <div className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4">
-                      <img src={`data:image/svg+xml;base64,${btoa(state.fileContent)}`} alt="Artwork preview" className="max-h-full max-w-full" />
-                    </div>
+                    <AnimatePresence>
+                      <motion.div
+                        key={state.material?.textureUrl || 'default'}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.5 }}
+                        className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 relative overflow-hidden bg-cover bg-center"
+                        style={{ backgroundImage: state.material?.textureUrl ? `url(${state.material.textureUrl})` : 'none' }}
+                      >
+                        <img
+                          src={`data:image/svg+xml;base64,${btoa(state.fileContent)}`}
+                          alt="Artwork preview"
+                          className={cn("max-h-full max-w-full transition-all duration-300", artworkPreviewStyles[state.jobType])}
+                          style={{
+                            filter: state.jobType === 'cut' ? 'drop-shadow(0 0 1px black)' : 'none',
+                          }}
+                        />
+                         {showKerf && state.material && (
+                          <div
+                            className="absolute inset-0 pointer-events-none border-red-500/70 border-dashed"
+                            style={{ borderWidth: `${(state.material.kerfMm / 2)}px` }}
+                          />
+                        )}
+                      </motion.div>
+                    </AnimatePresence>
                   )}
                 </CardContent>
               </Card>

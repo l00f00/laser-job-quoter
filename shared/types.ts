@@ -21,6 +21,7 @@ export interface Material {
   minFeatureMm: number;
   thicknessesMm: number[];
   thumbnailUrl: string;
+  textureUrl?: string;
 }
 export interface Quote {
   id: string;
