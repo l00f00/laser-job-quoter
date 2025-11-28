@@ -78,11 +78,10 @@ export function getSvgMetrics(svgString: string, physicalWidthMm: number): Promi
     try {
       const parser = new DOMParser();
       const doc = parser.parseFromString(svgString, 'image/svg+xml');
-      const svgElement = doc.querySelector('svg');
-      if (!svgElement) {
+      const svg = doc.querySelector('svg') as SVGSVGElement | null;
+      if (!svg) {
         throw new Error('No SVG element found in document');
       }
-      const svg = svgElement as SVGSVGElement;
       if (doc.querySelector('parsererror')) {
         throw new Error('Invalid or malformed SVG file');
       }
@@ -169,30 +168,29 @@ export function createMaskedTextureSvg(svgString: string, textureUrl: string, wi
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgString, 'image/svg+xml');
     if (doc.querySelector('parsererror')) throw new Error('Invalid SVG');
-    const root = doc.documentElement;
+    const root = doc.querySelector('svg') as SVGSVGElement | null;
+    if (!root) throw new Error('No SVG element found');
     if (!root.getAttribute('xmlns')) root.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     if (!root.getAttribute('xmlns:xlink')) root.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
     const clipPath = doc.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
     clipPath.id = 'cutMask';
     const elements = doc.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line');
     if (maskingMode) {
-        // Union of all shapes for clipping
-        elements.forEach(el => {
-            const clone = el.cloneNode(true) as SVGElement;
-            clone.removeAttribute('stroke');
-            clone.removeAttribute('stroke-width');
-            clone.removeAttribute('fill');
-            clipPath.appendChild(clone);
-        });
+      elements.forEach(el => {
+        const clone = el.cloneNode(true) as SVGElement;
+        clone.removeAttribute('stroke');
+        clone.removeAttribute('stroke-width');
+        clone.removeAttribute('fill');
+        clipPath.appendChild(clone);
+      });
     } else {
-        // Default behavior: clip to the bounding box
-        const bbox = (root as SVGSVGElement).getBBox();
-        const clipRect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        clipRect.setAttribute('x', String(bbox.x));
-        clipRect.setAttribute('y', String(bbox.y));
-        clipRect.setAttribute('width', String(bbox.width));
-        clipRect.setAttribute('height', String(bbox.height));
-        clipPath.appendChild(clipRect);
+      const bbox = root.getBBox();
+      const clipRect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      clipRect.setAttribute('x', String(bbox.x));
+      clipRect.setAttribute('y', String(bbox.y));
+      clipRect.setAttribute('width', String(bbox.width));
+      clipRect.setAttribute('height', String(bbox.height));
+      clipPath.appendChild(clipRect);
     }
     const defs = doc.createElementNS('http://www.w3.org/2000/svg', 'defs');
     defs.appendChild(clipPath);
@@ -205,12 +203,10 @@ export function createMaskedTextureSvg(svgString: string, textureUrl: string, wi
     image.setAttribute('height', String(height));
     image.setAttribute('preserveAspectRatio', 'xMidYMid slice');
     g.appendChild(image);
-    // Clear original content and append masked group
     while (root.lastChild && root.lastChild !== defs) {
       root.removeChild(root.lastChild);
     }
     root.appendChild(g);
-    // Add red lines overlay if needed
     if (redLines) {
       const overlayG = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
       overlayG.setAttribute('opacity', '0.8');
@@ -230,31 +226,29 @@ export function createMaskedTextureSvg(svgString: string, textureUrl: string, wi
   }
 }
 export function canvasFallbackForRaster(fileContent: string, physicalWidth: number, physicalHeight: number, textureUrl: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject('Could not get canvas context');
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = physicalWidth * dpr * 4; // Higher res for better quality
-        canvas.height = physicalHeight * dpr * 4;
-        ctx.scale(dpr * 4, dpr * 4);
-        const artworkImg = new Image();
-        artworkImg.crossOrigin = "anonymous";
-        artworkImg.onload = () => {
-            const textureImg = new Image();
-            textureImg.crossOrigin = "anonymous";
-            textureImg.onload = () => {
-                // Draw texture as background
-                ctx.drawImage(textureImg, 0, 0, physicalWidth, physicalHeight);
-                // Clip to artwork shape (using alpha channel)
-                ctx.globalCompositeOperation = 'destination-in';
-                ctx.drawImage(artworkImg, 0, 0, physicalWidth, physicalHeight);
-                resolve(canvas.toDataURL('image/png'));
-            };
-            textureImg.onerror = () => reject('Failed to load texture image.');
-            textureImg.src = textureUrl;
-        };
-        artworkImg.onerror = () => reject('Failed to load artwork image.');
-        artworkImg.src = fileContent;
-    });
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return reject('Could not get canvas context');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = physicalWidth * dpr * 4; // Higher res for better quality
+    canvas.height = physicalHeight * dpr * 4;
+    ctx.scale(dpr * 4, dpr * 4);
+    const artworkImg = new Image();
+    artworkImg.crossOrigin = "anonymous";
+    artworkImg.onload = () => {
+      const textureImg = new Image();
+      textureImg.crossOrigin = "anonymous";
+      textureImg.onload = () => {
+        ctx.drawImage(textureImg, 0, 0, physicalWidth, physicalHeight);
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.drawImage(artworkImg, 0, 0, physicalWidth, physicalHeight);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      textureImg.onerror = () => reject('Failed to load texture image.');
+      textureImg.src = textureUrl;
+    };
+    artworkImg.onerror = () => reject('Failed to load artwork image.');
+    artworkImg.src = fileContent;
+  });
 }

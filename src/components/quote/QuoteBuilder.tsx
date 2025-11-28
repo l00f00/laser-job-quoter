@@ -24,7 +24,11 @@ import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import html2canvas from 'html2canvas';
 import { saveAs } from 'file-saver';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';interface QuoteBuilderProps {id?: string | number;[key: string]: unknown;}
+import { Button } from '@/components/ui/button';
+interface QuoteBuilderProps {
+  editMode?: boolean;
+  initialQuote?: Quote;
+}
 type QuoteState = {
   file?: File;
   fileContent?: string;
@@ -67,9 +71,9 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
     if (editMode && initialQuote && materials) {
       const material = materials.find((m) => m.id === initialQuote.materialId);
       const fileContent = initialQuote.fileContent && initialQuote.fileContent.startsWith('data:image/svg+xml;base64,') ?
-      atob(initialQuote.fileContent.split(',')[1]) :
-      undefined;
-      const metrics = {
+        atob(initialQuote.fileContent.split(',')[1]) :
+        undefined;
+      const metrics: ArtworkMetrics = {
         widthMm: initialQuote.physicalWidthMm,
         heightMm: initialQuote.physicalHeightMm,
         cutLengthMm: 0, engraveAreaSqMm: 0, pathComplexity: 0, aspectRatio: 1
@@ -104,7 +108,6 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         setState((s) => ({ ...s, artworkMetrics: metrics, initialMetrics: metrics }));
         toast.success('Artwork analyzed successfully!');
       } else {
-
         const metrics = {
           widthMm: physicalWidthMm,
           heightMm: physicalWidthMm,
@@ -164,8 +167,8 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
     });
   }, [state.artworkMetrics, state.material, state.thicknessMm, state.jobType]);
   const handleSaveQuote = async (selectedPackage: PricePackage) => {
-    if (!mockAuth.isAuthenticated()) {setIsLoginModalOpen(true);return;}
-    if (!state.material || !state.artworkMetrics || !pricePackages) {toast.error("Please complete all steps.");return;}
+    if (!mockAuth.isAuthenticated()) { setIsLoginModalOpen(true); return; }
+    if (!state.material || !state.artworkMetrics || !pricePackages) { toast.error("Please complete all steps."); return; }
     setIsSaving(true);
     try {
       const isSvgFile = state.file?.type.includes('svg') || initialQuote?.thumbnail?.startsWith('data:image/svg+xml');
@@ -224,10 +227,10 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
             <Card><CardHeader><CardTitle>1. Select Material</CardTitle></CardHeader><CardContent><MaterialSelector selectedMaterialId={state.material?.id} onSelectMaterial={(m) => setState((s) => ({ ...s, material: m, thicknessMm: m.thicknessesMm[0] }))} /></CardContent></Card>
           </motion.div>
           {state.material &&
-          <motion.div layout variants={itemVariants}>
+            <motion.div layout variants={itemVariants}>
               <Card><CardHeader><CardTitle>2. Job Options</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
-                  <div><Label>Job Type</Label><ToggleGroup type="single" value={state.jobType} onValueChange={(v) => {if (v) setState((s) => ({ ...s, jobType: v as any }));}} className="grid grid-cols-3 mt-2"><ToggleGroupItem value="cut"><Scissors className="h-4 w-4 mr-2" />Cut</ToggleGroupItem><ToggleGroupItem value="engrave"><Brush className="h-4 w-4 mr-2" />Engrave</ToggleGroupItem><ToggleGroupItem value="both"><Layers className="h-4 w-4 mr-2" />Both</ToggleGroupItem></ToggleGroup></div>
+                  <div><Label>Job Type</Label><ToggleGroup type="single" value={state.jobType} onValueChange={(v) => { if (v) setState((s) => ({ ...s, jobType: v as any })); }} className="grid grid-cols-3 mt-2"><ToggleGroupItem value="cut"><Scissors className="h-4 w-4 mr-2" />Cut</ToggleGroupItem><ToggleGroupItem value="engrave"><Brush className="h-4 w-4 mr-2" />Engrave</ToggleGroupItem><ToggleGroupItem value="both"><Layers className="h-4 w-4 mr-2" />Both</ToggleGroupItem></ToggleGroup></div>
                   <div><Label>Thickness: {state.thicknessMm}mm</Label><Slider value={[state.thicknessMm || state.material.thicknessesMm[0]]} onValueChange={([val]) => setState((s) => ({ ...s, thicknessMm: val }))} min={state.material.thicknessesMm[0]} max={state.material.thicknessesMm[state.material.thicknessesMm.length - 1]} step={state.material.thicknessesMm.length > 1 ? state.material.thicknessesMm[1] - state.material.thicknessesMm[0] : 1} className="mt-2" /></div>
                 </CardContent>
               </Card>
@@ -239,7 +242,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
             <Card><CardHeader><CardTitle>3. Upload Artwork</CardTitle></CardHeader><CardContent>{isLoadingMetrics ? <Skeleton className="h-64 w-full" /> : <UploadDropzone onFileAccepted={handleFileAccepted} />}</CardContent></Card>
           </motion.div>
           {state.fileContent &&
-          <motion.div layout variants={itemVariants} className="space-y-4">
+            <motion.div layout variants={itemVariants} className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Simple Preview</CardTitle>
@@ -248,29 +251,29 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
                 <CardContent>
                   <ErrorBoundary>
                     {isLoadingMetrics ? <Skeleton className="aspect-video w-full" /> :
-                  <div ref={previewRef} className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 overflow-hidden relative">
+                      <div ref={previewRef} className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 overflow-hidden relative">
                         <TransformWrapper minScale={1} maxScale={4} disabled={!advancedEditorOpen}>
                           <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full">
                             <img key={previewKey} src={processedPreviewData.src} alt="Preview" className={`max-h-full max-w-full object-contain transition-all duration-300 ${blendModes[blendMode]}`} />
                           </TransformComponent>
                         </TransformWrapper>
                         {showRuler && state.artworkMetrics &&
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${state.artworkMetrics.widthMm} ${state.artworkMetrics.heightMm}`} preserveAspectRatio="none">
-                                <line x1="0" y1="0" x2={state.artworkMetrics.widthMm} y2="0" stroke="rgba(128,128,128,0.5)" strokeWidth="0.5" strokeDasharray="2 2" />
-                                <line x1="0" y1="0" x2="0" y2={state.artworkMetrics.heightMm} stroke="rgba(128,128,128,0.5)" strokeWidth="0.5" strokeDasharray="2 2" />
-                                <text x="5" y="10" fontSize="8" fill="gray">{state.artworkMetrics.heightMm.toFixed(1)}mm</text>
-                                <text x={state.artworkMetrics.widthMm - 25} y={state.artworkMetrics.heightMm - 5} fontSize="8" fill="gray">{state.artworkMetrics.widthMm.toFixed(1)}mm</text>
-                           </svg>
-                    }
+                          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${state.artworkMetrics.widthMm} ${state.artworkMetrics.heightMm}`} preserveAspectRatio="none">
+                            <line x1="0" y1="0" x2={state.artworkMetrics.widthMm} y2="0" stroke="rgba(128,128,128,0.5)" strokeWidth="0.5" strokeDasharray="2 2" />
+                            <line x1="0" y1="0" x2="0" y2={state.artworkMetrics.heightMm} stroke="rgba(128,128,128,0.5)" strokeWidth="0.5" strokeDasharray="2 2" />
+                            <text x="5" y="10" fontSize="8" fill="gray">{state.artworkMetrics.heightMm.toFixed(1)}mm</text>
+                            <text x={state.artworkMetrics.widthMm - 25} y={state.artworkMetrics.heightMm - 5} fontSize="8" fill="gray">{state.artworkMetrics.widthMm.toFixed(1)}mm</text>
+                          </svg>
+                        }
                       </div>
-                  }
+                    }
                   </ErrorBoundary>
                 </CardContent>
               </Card>
               <Button variant="outline" onClick={() => setAdvancedEditorOpen(!advancedEditorOpen)} className="w-full"><Settings className="mr-2 h-4 w-4" /> {advancedEditorOpen ? 'Hide' : 'Show'} Advanced Editor</Button>
               <AnimatePresence>
                 {advancedEditorOpen &&
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                     <Card className="mt-4"><CardHeader><CardTitle>Advanced Editor Tools</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2"><Label>Scale</Label><Slider value={[state.scalePercent]} onValueChange={handleScaleChange} min={50} max={200} step={10} /><span className="text-sm font-mono w-12 text-right">{state.scalePercent}%</span></div>
@@ -282,7 +285,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
                       </CardContent>
                     </Card>
                   </motion.div>
-              }
+                }
               </AnimatePresence>
               {manufacturabilityIssues.length > 0 && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Manufacturability Warning</AlertTitle><AlertDescription><ul>{manufacturabilityIssues.map((issue, i) => <li key={i}>- {issue}</li>)}</ul></AlertDescription></Alert>}
             </motion.div>
@@ -297,5 +300,4 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       <HelpButton savedQuoteId={state.savedQuoteId} />
       <LoginModal open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen} onLoginSuccess={() => toast.info("Login successful! Please click 'Save Quote' again.")} />
     </>);
-
 }
