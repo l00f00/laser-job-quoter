@@ -11,11 +11,21 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
 function AdminDashboard() {
   const { data: orders, isLoading, error } = useQuery<Order[]>({
     queryKey: ['admin-orders'],
@@ -41,59 +51,70 @@ function AdminDashboard() {
     );
   }
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>All Orders</CardTitle>
-        <CardDescription>A list of all submitted orders.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Quote ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <AnimatePresence>
-                {orders?.map((order, i) => (
-                  <motion.tr
-                    key={order.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="hover:bg-muted/50"
-                  >
-                    <TableCell className="font-mono text-xs">{order.id}</TableCell>
-                    <TableCell className="font-mono text-xs">{order.quoteId}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={cn({
-                          'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': order.status === 'paid',
-                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200': order.status === 'pending',
-                        })}
-                      >
-                        {order.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{new Date(order.submittedAt).toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm" asChild>
-                        <Link to={`/quotes/${order.quoteId}`}>View Quote</Link>
-                      </Button>
-                    </TableCell>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+    <motion.div variants={containerVariants} initial="hidden" animate="visible">
+      <Card>
+        <CardHeader>
+          <CardTitle>All Orders</CardTitle>
+          <CardDescription>A list of all submitted orders.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto rounded-md border">
+            <Table className="min-w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Quote ID</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <AnimatePresence>
+                  {orders?.map((order, i) => (
+                    <motion.tr
+                      key={order.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="hover:bg-muted/50"
+                    >
+                      <TableCell className="font-mono text-xs">{order.id}</TableCell>
+                      <TableCell className="font-mono text-xs">{order.quoteId}</TableCell>
+                      <TableCell>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Badge
+                                className={cn('transition-transform hover:scale-105', {
+                                  'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': order.status === 'paid',
+                                  'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200': order.status === 'pending',
+                                })}
+                              >
+                                {order.status}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{order.status === 'paid' ? 'Order completed and paid.' : 'Awaiting payment.'}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
+                      <TableCell>{new Date(order.submittedAt).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to={`/quotes/${order.quoteId}`}>View Quote</Link>
+                        </Button>
+                      </TableCell>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
 export function AdminPage() {

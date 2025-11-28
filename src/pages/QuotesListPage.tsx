@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { mockAuth } from '@/lib/auth-utils';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { Link } from 'react-router-dom';
-import { ArrowRight, FileText } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 const EmptyStateCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -20,9 +21,9 @@ const EmptyStateCanvas = () => {
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
         ctx.scale(dpr, dpr);
+        // Draw a simple laser icon
         ctx.strokeStyle = '#9ca3af'; // gray-400
         ctx.lineWidth = 2;
-        // Draw a simple laser icon
         ctx.beginPath();
         ctx.rect(10, 30, 20, 40); // Laser body
         ctx.moveTo(30, 40);
@@ -30,11 +31,13 @@ const EmptyStateCanvas = () => {
         ctx.moveTo(30, 60);
         ctx.lineTo(40, 60);
         ctx.stroke();
-        // Draw a laser beam
+        // Draw a laser beam with glow
         ctx.beginPath();
         ctx.moveTo(45, 50);
         ctx.lineTo(85, 50);
         ctx.strokeStyle = '#f59e0b'; // amber-500
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 10;
         ctx.lineWidth = 3;
         ctx.stroke();
       }
@@ -73,14 +76,19 @@ export function QuotesListPage() {
           {isAuthenticated ? (
             <QuotesList />
           ) : (
-            <div className="text-center py-16 border-2 border-dashed rounded-lg">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-center py-16 border-2 border-dashed rounded-lg"
+            >
               <EmptyStateCanvas />
               <h3 className="mt-4 text-lg font-medium">Please Log In</h3>
               <p className="mt-1 text-sm text-muted-foreground">You need to be logged in to view your saved quotes.</p>
               <Button onClick={() => setIsLoginModalOpen(true)} className="mt-6 bg-[rgb(99,102,241)] hover:bg-[rgb(80,83,200)] text-white">
                 Login
               </Button>
-            </div>
+            </motion.div>
           )}
         </div>
       </div>

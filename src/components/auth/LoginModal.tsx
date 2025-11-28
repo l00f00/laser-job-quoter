@@ -62,7 +62,7 @@ export function LoginModal({ open, onOpenChange, onLoginSuccess }: LoginModalPro
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="password" vasta-v2-runner-session-id="1hiaeporsk-ne04h6vucl" className="text-right">
+              <Label htmlFor="password" className="text-right">
                 Password
               </Label>
               <Input
