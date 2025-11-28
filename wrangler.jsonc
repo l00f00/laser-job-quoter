@@ -4,7 +4,7 @@
  */
  {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "vite-cf-do-runner",
+	"name": "luxquote-1hiaeporsk-ne04h6vucl",
 	"main": "worker/index.ts",
 	"compatibility_date": "2025-04-24",
 	"assets": {
