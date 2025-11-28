@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocation } from "react-router-dom";
 import { Home, Layers, Compass, Star, Settings, LifeBuoy, List } from "lucide-react";
 import {
   Sidebar,
@@ -17,7 +18,8 @@ import {
 } from "@/components/ui/sidebar";
 
 export function AppSidebar(): JSX.Element {
-  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const location = useLocation();
+  const currentPath = location.pathname;
   const isActive = (p: string) => currentPath === p;
   return (
     <Sidebar>
@@ -31,19 +33,13 @@ export function AppSidebar(): JSX.Element {
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isActive('/')}>
-                <a href="/"><Home /> <span>Home</span></a>
-              </SidebarMenuButton>
+              <a href="/"><Home /> <span>Home</span></a>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isActive('/quote')}>
-                <a href="/quote"><Layers /> <span>New Quote</span></a>
-              </SidebarMenuButton>
+              <a href="/quote"><Layers /> <span>New Quote</span></a>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isActive('/quotes')}>
-                <a href="/quotes"><List /> <span>My Quotes</span></a>
-              </SidebarMenuButton>
+              <a href="/quotes"><List /> <span>My Quotes</span></a>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
@@ -52,14 +48,10 @@ export function AppSidebar(): JSX.Element {
           <SidebarGroupLabel>Support</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><LifeBuoy /> <span>Help Center</span></a>
-              </SidebarMenuButton>
+              <a href="#"><LifeBuoy /> <span>Help Center</span></a>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Settings /> <span>Settings</span></a>
-              </SidebarMenuButton>
+              <a href="#"><Settings /> <span>Settings</span></a>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>

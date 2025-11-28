@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { Info, Zap, ShoppingCart, Loader2 } from 'lucide-react';
 import type { PricePackage } from '@shared/types';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 interface PriceCardProps {
   packages: PricePackage[];
   quoteId?: string;
@@ -18,8 +20,16 @@ interface PriceCardProps {
 }
 export function PriceCard({ packages, quoteId, onSaveQuote, isSaving, isEditMode = false }: PriceCardProps) {
   const [selectedPackageName, setSelectedPackageName] = useState<'Economy' | 'Standard' | 'Express'>('Standard');
+  const [quantity, setQuantity] = useState(1);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const activePackage = packages.find(p => p.name === selectedPackageName) || packages[1];
+  const multipliedTotal = (activePackage?.total ?? 0) * quantity;
+  const multipliedBreakdown = useMemo(() => {
+    if (!activePackage?.breakdown) return {};
+    return Object.fromEntries(
+      Object.entries(activePackage.breakdown).map(([key, value]) => [key, (value as number) * quantity])
+    );
+  }, [activePackage?.breakdown, quantity]);
   const handleCheckout = async () => {
     if (!quoteId) {
       toast.error("Please save the quote before placing an order.");
@@ -29,7 +39,7 @@ export function PriceCard({ packages, quoteId, onSaveQuote, isSaving, isEditMode
     try {
       const response = await api<{ url: string }>('/api/orders/stripe', {
         method: 'POST',
-        body: JSON.stringify({ quoteId, package: activePackage.name }),
+        body: JSON.stringify({ quoteId, package: activePackage.name, quantity }),
       });
       if (response.url) {
         window.location.href = response.url;
@@ -69,19 +79,38 @@ export function PriceCard({ packages, quoteId, onSaveQuote, isSaving, isEditMode
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        <div className="space-y-2">
+          <Label htmlFor="quantity">Quantity</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, Math.min(100, Number(e.target.value))))}
+                  min={1}
+                  max={100}
+                  className="w-full"
+                />
+              </TooltipTrigger>
+              <TooltipContent><p>Enter quantity (1-100)</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <div className="text-center space-y-2">
-          <p className="text-muted-foreground">Total Price</p>
+          <p className="text-muted-foreground">Total for {quantity} piece{quantity > 1 ? 's' : ''}</p>
           <div className="text-5xl font-bold font-display text-foreground relative h-12">
             <AnimatePresence mode="wait">
               <motion.div
-                key={activePackage?.total}
+                key={multipliedTotal}
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: -20, opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className="absolute inset-0 flex items-center justify-center"
               >
-                ${activePackage?.total?.toFixed(2) ?? '0.00'}
+                ${multipliedTotal.toFixed(2)}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -89,7 +118,7 @@ export function PriceCard({ packages, quoteId, onSaveQuote, isSaving, isEditMode
         <Separator />
         <div className="space-y-2 text-sm">
           <h4 className="font-semibold mb-2">Price Breakdown</h4>
-          {Object.entries(activePackage?.breakdown ?? {}).map(([key, value]) => (
+          {Object.entries(multipliedBreakdown).map(([key, value]) => (
             (value as number) > 0 && (
               <div key={key} className="flex justify-between items-center text-muted-foreground">
                 <span className="flex items-center gap-1.5">
@@ -113,7 +142,7 @@ export function PriceCard({ packages, quoteId, onSaveQuote, isSaving, isEditMode
           </Button>
           <Button size="lg" variant="secondary" className="w-full" onClick={handleCheckout} disabled={!quoteId || isCheckingOut}>
             {isCheckingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4" />}
-            {isCheckingOut ? 'Redirecting...' : 'Pay with Stripe'}
+            {isCheckingOut ? 'Redirecting...' : `Pay for ${quantity} piece${quantity > 1 ? 's' : ''}`}
           </Button>
         </div>
       </CardContent>

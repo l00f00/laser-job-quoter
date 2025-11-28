@@ -8,49 +8,32 @@ import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ErrorBoundary } from 'react-error-boundary';
+import { ErrorBoundary } from "react-error-boundary";
 /**
- * Import application pages.
+ * Import application pages and common components.
  */
 import { HomePage } from "@/pages/HomePage";
 import { DemoPage } from "@/pages/DemoPage";
 import LoginPage from "@/pages/LoginPage";
 import { QuotePage } from "@/pages/QuotePage";
 import { AdminPage } from "@/pages/AdminPage";
-import { Skeleton } from "@/components/ui/skeleton";
+import FullPageLoader from "@/components/common/FullPageLoader";
+import ErrorFallback from "@/components/common/ErrorFallback";
 /**
  * Import global styles.
  */
 import "@/index.css";
 // Lazy load pages that are not critical for the initial render
-const QuotesListPage = lazy(() => import('@/pages/QuotesListPage').then(module => ({ default: module.QuotesListPage })));
+const QuotesListPage = lazy(() => import('@/pages/QuotesListPage'));
 // Create a client
 const queryClient = new QueryClient();
 const rootEl = document.getElementById("root");
 if (!rootEl) {
   throw new Error("Root element not found. Make sure there is an element with id='root' in index.html");
 }
-const FullPageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen bg-background">
-    <div className="w-full max-w-md p-8 space-y-4">
-      <Skeleton className="h-12 w-full" />
-      <Skeleton className="h-32 w-full" />
-      <Skeleton className="h-10 w-1/2 mx-auto" />
-    </div>
-  </div>
-);
-const ErrorFallback = ({ error }: { error: Error }) => (
-  <div role="alert" className="flex flex-col items-center justify-center min-h-screen text-center p-4 bg-background text-foreground">
-    <h2 className="text-2xl font-bold text-destructive">Something went wrong:</h2>
-    <pre className="mt-2 p-2 bg-muted rounded-md text-destructive-foreground">{error.message}</pre>
-    <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md">
-      Reload Page
-    </button>
-  </div>
-);
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
-    <ErrorBoundary FallbackComponent={ErrorFallback}>
+    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Suspense fallback={<FullPageLoader />}>

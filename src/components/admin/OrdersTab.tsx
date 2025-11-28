@@ -88,8 +88,8 @@ export function OrdersTab() {
                   <TableHead className="w-24">Thumbnail</TableHead>
                   <TableHead>Quote Title</TableHead>
                   <TableHead>Material</TableHead>
-                  <TableHead>Job Type</TableHead>
                   <TableHead>Dimensions</TableHead>
+                  <TableHead className="w-16">Qty</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="cursor-pointer" onClick={() => handleSort('submittedAt')}>
@@ -116,9 +116,9 @@ export function OrdersTab() {
                       </TableCell>
                       <TableCell className="font-medium">{order.quote?.title ?? 'N/A'}</TableCell>
                       <TableCell>{materialsById.get(order.quote?.materialId ?? '') ?? 'N/A'}</TableCell>
-                      <TableCell><Badge variant="outline">{order.quote?.jobType ?? 'N/A'}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{order.quote ? `${order.quote.physicalWidthMm}x${order.quote.physicalHeightMm}mm` : 'N/A'}</TableCell>
-                      <TableCell className="font-semibold">${(order.quote?.estimate as any)?.total?.toFixed(2) ?? 'N/A'}</TableCell>
+                      <TableCell>{order.quantity ?? 1}</TableCell>
+                      <TableCell className="font-semibold">${(((order.quote?.estimate as any)?.total ?? 0) * (order.quantity ?? 1)).toFixed(2)}</TableCell>
                       <TableCell>
                         <Badge className={cn({
                           'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300': order.status === 'paid',

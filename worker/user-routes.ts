@@ -92,13 +92,17 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       status: OrderStatus.Pending,
       submittedAt: Date.now(),
       paymentStatus: 'mock_pending',
+      quantity: 1,
     };
     const created = await OrderEntity.create(c.env, newOrder);
     return ok(c, created);
   });
   app.post('/api/orders/stripe', async (c) => {
-    const { quoteId } = (await c.req.json()) as { quoteId: string };
+    const { quoteId, quantity = 1 } = (await c.req.json()) as { quoteId: string, quantity?: number };
     if (!quoteId) return bad(c, 'quoteId is required');
+    if (quantity < 1 || quantity > 100 || !Number.isInteger(quantity)) {
+      return bad(c, 'Invalid quantity. Must be an integer between 1 and 100.');
+    }
     const quoteEntity = new QuoteEntity(c.env, quoteId);
     if (!(await quoteEntity.exists())) return notFound(c, 'Quote not found');
     const quote = await quoteEntity.getState();
@@ -107,14 +111,10 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const origin = c.req.header('origin') || c.req.url.split('/api')[0];
     let session: { url: string; id: string; payment_intent: string } | null = null;
     let error: string | null = null;
-    // Dev-friendly handling: if Stripe key is missing or contains a placeholder (e.g. 'HERE'),
-    // skip calling the real Stripe API and use a mocked session. Only call Stripe when a real
-    // key is present and does not include placeholder text.
     const stripeKey = (c.env as any).STRIPE_SECRET_KEY;
     if (!stripeKey || String(stripeKey).includes('HERE')) {
-      // Dev fallback - do not attempt network call
       session = {
-        url: `${origin}/quotes?payment=success&session_id=cs_test_mock_${crypto.randomUUID()}`,
+        url: `${origin}/quotes?payment=success&session_id=cs_test_mock_${crypto.randomUUID()}&quantity=${quantity}`,
         id: `cs_test_mock_${crypto.randomUUID()}`,
         payment_intent: `pi_mock_${crypto.randomUUID()}`,
       };
@@ -126,7 +126,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         params.append('line_items[0][price_data][product_data][name]', `LuxQuote Order for: ${quote.title}`);
         params.append('line_items[0][price_data][product_data][description]', `Material: ${quote.materialId}, ${quote.thicknessMm}mm`);
         params.append('line_items[0][price_data][unit_amount]', String(Math.round(estimate.total * 100)));
-        params.append('line_items[0][quantity]', '1');
+        params.append('line_items[0][quantity]', String(quantity));
         params.append('success_url', `${origin}/quotes?payment=success&session_id={CHECKOUT_SESSION_ID}`);
         params.append('cancel_url', `${origin}/quote/${quoteId}`);
         params.append('metadata[quote_id]', quoteId);
@@ -146,10 +146,9 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
         console.error('Stripe session creation failed:', e);
         error = (e as Error).message;
       }
-      // If for any reason session wasn't created, fall back to mocked session
       if (!session) {
         session = {
-          url: `${origin}/quotes?payment=success&session_id=cs_test_mock_${crypto.randomUUID()}`,
+          url: `${origin}/quotes?payment=success&session_id=cs_test_mock_${crypto.randomUUID()}&quantity=${quantity}`,
           id: `cs_test_mock_${crypto.randomUUID()}`,
           payment_intent: `pi_mock_${crypto.randomUUID()}`,
         };
@@ -164,13 +163,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       paymentStatus: 'mock_pending',
       stripeSessionId: session.id,
       paymentIntentId: session.payment_intent,
+      quantity,
     };
     const newOrder = await OrderEntity.create(c.env, newOrderData);
-    return ok(c, { url: session.url, orderId: newOrder.id, error });
+    return ok(c, { url: session.url, orderId: newOrder.id, error, quantity });
   });
   app.post('/api/stripe/webhook', async (c) => {
-    // In production, you would verify the webhook signature here using c.env.STRIPE_WEBHOOK_SECRET
-    // For this demo, we trust the incoming event.
     const event = await c.req.json();
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
@@ -237,7 +235,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       .reduce((sum, o) => {
         const quote = quotesById.get(o.quoteId);
         const total = (quote?.estimate as PricePackage)?.total || 0;
-        return sum + total;
+        const quantity = o.quantity || 1;
+        return sum + (total * quantity);
       }, 0);
     const materialCounts = quotesPage.items.reduce((acc, quote) => {
       acc[quote.materialId] = (acc[quote.materialId] || 0) + 1;

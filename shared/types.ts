@@ -52,6 +52,7 @@ export interface Order {
   paymentStatus: 'mock_pending' | 'mock_paid';
   stripeSessionId?: string;
   paymentIntentId?: string;
+  quantity?: number;
   // Enriched data from the backend
   quote?: {
     title: string;
