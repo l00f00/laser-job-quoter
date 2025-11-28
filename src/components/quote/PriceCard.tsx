@@ -11,8 +11,9 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 interface PriceCardProps {
-  packages: PricePackage[];
+  packages: PricePackage[] | null;
   quoteId?: string;
   onSaveQuote: (selectedPackage: PricePackage) => void;
   isSaving: boolean;
@@ -22,7 +23,10 @@ export function PriceCard({ packages, quoteId, onSaveQuote, isSaving, isEditMode
   const [selectedPackageName, setSelectedPackageName] = useState<'Economy' | 'Standard' | 'Express'>('Standard');
   const [quantity, setQuantity] = useState(1);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const activePackage = packages.find(p => p.name === selectedPackageName) || packages[1];
+  const activePackage = useMemo(() => {
+    if (!packages) return null;
+    return packages.find(p => p.name === selectedPackageName) || packages[1];
+  }, [packages, selectedPackageName]);
   const multipliedTotal = (activePackage?.total ?? 0) * quantity;
   const multipliedBreakdown = useMemo(() => {
     if (!activePackage?.breakdown) return {};
@@ -33,6 +37,10 @@ export function PriceCard({ packages, quoteId, onSaveQuote, isSaving, isEditMode
   const handleCheckout = async () => {
     if (!quoteId) {
       toast.error("Please save the quote before placing an order.");
+      return;
+    }
+    if (!activePackage) {
+      toast.error("Pricing package not available.");
       return;
     }
     setIsCheckingOut(true);
@@ -64,87 +72,93 @@ export function PriceCard({ packages, quoteId, onSaveQuote, isSaving, isEditMode
         <CardDescription>Select a production speed to see your price.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <ToggleGroup
-          type="single"
-          value={selectedPackageName}
-          onValueChange={(value: 'Economy' | 'Standard' | 'Express') => {
-            if (value) setSelectedPackageName(value);
-          }}
-          className="grid grid-cols-3"
-        >
-          {packages.map(pkg => (
-            <ToggleGroupItem key={pkg.name} value={pkg.name} className="flex flex-col h-auto py-2">
-              <span className="font-semibold">{pkg.name}</span>
-              <span className="text-xs text-muted-foreground">{pkg.leadTime}</span>
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        <div className="space-y-2">
-          <Label htmlFor="quantity">Quantity</Label>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Input
-                  id="quantity"
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, Math.min(100, Number(e.target.value))))}
-                  min={1}
-                  max={100}
-                  className="w-full"
-                />
-              </TooltipTrigger>
-              <TooltipContent><p>Enter quantity (1-100)</p></TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        <div className="text-center space-y-2">
-          <p className="text-muted-foreground">Total for {quantity} piece{quantity > 1 ? 's' : ''}</p>
-          <div className="text-5xl font-bold font-display text-foreground relative h-12">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={multipliedTotal}
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -20, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="absolute inset-0 flex items-center justify-center"
-              >
-                ${multipliedTotal.toFixed(2)}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </div>
-        <Separator />
-        <div className="space-y-2 text-sm">
-          <h4 className="font-semibold mb-2">Price Breakdown</h4>
-          {Object.entries(multipliedBreakdown).map(([key, value]) => (
-            (value as number) > 0 && (
-              <div key={key} className="flex justify-between items-center text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  {key}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger><Info className="h-3 w-3" /></TooltipTrigger>
-                      <TooltipContent><p>Details about {key.toLowerCase()}.</p></TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </span>
-                <span>${(value as number)?.toFixed(2) ?? '0.00'}</span>
+        {!packages ? (
+          <Skeleton className="h-32 w-full" />
+        ) : (
+          <>
+            <ToggleGroup
+              type="single"
+              value={selectedPackageName}
+              onValueChange={(value: 'Economy' | 'Standard' | 'Express') => {
+                if (value) setSelectedPackageName(value);
+              }}
+              className="grid grid-cols-3"
+            >
+              {packages.map(pkg => (
+                <ToggleGroupItem key={pkg.name} value={pkg.name} className="flex flex-col h-auto py-2">
+                  <span className="font-semibold">{pkg.name}</span>
+                  <span className="text-xs text-muted-foreground">{pkg.leadTime}</span>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.max(1, Math.min(100, Number(e.target.value))))}
+                      min={1}
+                      max={100}
+                      className="w-full"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent><p>Enter quantity (1-100)</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-muted-foreground">Total for {quantity} piece{quantity > 1 ? 's' : ''}</p>
+              <div className="text-5xl font-bold font-display text-foreground relative h-12">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={multipliedTotal}
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -20, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    ${multipliedTotal.toFixed(2)}
+                  </motion.div>
+                </AnimatePresence>
               </div>
-            )
-          ))}
-        </div>
-        <div className="grid grid-cols-1 gap-2">
-          <Button size="lg" className="w-full bg-[rgb(245,128,37)] hover:bg-[rgb(230,90,27)] text-white" onClick={() => onSaveQuote(activePackage)} disabled={isSaving}>
-            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {isSaving ? 'Saving...' : (isEditMode ? 'Update Quote' : 'Save Quote')}
-          </Button>
-          <Button size="lg" variant="secondary" className="w-full" onClick={handleCheckout} disabled={!quoteId || isCheckingOut}>
-            {isCheckingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4" />}
-            {isCheckingOut ? 'Redirecting...' : `Pay for ${quantity} piece${quantity > 1 ? 's' : ''}`}
-          </Button>
-        </div>
+            </div>
+            <Separator />
+            <div className="space-y-2 text-sm">
+              <h4 className="font-semibold mb-2">Price Breakdown</h4>
+              {Object.entries(multipliedBreakdown).map(([key, value]) => (
+                (value as number) > 0 && (
+                  <div key={key} className="flex justify-between items-center text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      {key}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger><Info className="h-3 w-3" /></TooltipTrigger>
+                          <TooltipContent><p>Details about {key.toLowerCase()}.</p></TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </span>
+                    <span>${(value as number)?.toFixed(2) ?? '0.00'}</span>
+                  </div>
+                )
+              ))}
+            </div>
+            <div className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
+              <Button size="lg" className="w-full bg-[rgb(245,128,37)] hover:bg-[rgb(230,90,27)] text-white" onClick={() => activePackage && onSaveQuote(activePackage)} disabled={isSaving || !activePackage}>
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isSaving ? 'Saving...' : (isEditMode ? 'Update Quote' : 'Save Quote')}
+              </Button>
+              <Button size="lg" variant="secondary" className="w-full" onClick={handleCheckout} disabled={!quoteId || isCheckingOut}>
+                {isCheckingOut ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4" />}
+                {isCheckingOut ? 'Redirecting...' : `Pay for ${quantity} piece${quantity > 1 ? 's' : ''}`}
+              </Button>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

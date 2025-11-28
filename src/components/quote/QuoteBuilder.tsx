@@ -17,8 +17,9 @@ import type { Material, Quote, PricePackage } from '@shared/types';
 import { Scissors, Brush, Layers, AlertTriangle } from 'lucide-react';
 import { mockAuth } from '@/lib/auth-utils';
 import { LoginModal } from '@/components/auth/LoginModal';
-import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
+import { ErrorBoundary } from 'react-error-boundary';
+import ErrorFallback from '@/components/common/ErrorFallback';
 type QuoteState = {
   file?: File;
   fileContent?: string;
@@ -69,8 +70,8 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         artworkMetrics: {
           widthMm: initialQuote.physicalWidthMm,
           heightMm: initialQuote.physicalHeightMm,
-          cutLengthMm: 0, // Recalculate
-          engraveAreaSqMm: 0, // Recalculate
+          cutLengthMm: 0,
+          engraveAreaSqMm: 0,
           pathComplexity: 0,
         },
       };
@@ -79,6 +80,8 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         setIsLoadingMetrics(true);
         getSvgMetrics(fileContent, initialQuote.physicalWidthMm).then(metrics => {
           setState(s => ({ ...s, artworkMetrics: metrics }));
+        }).catch(err => {
+          toast.error("Failed to re-analyze artwork", { description: err.message });
         }).finally(() => setIsLoadingMetrics(false));
       }
     }
@@ -94,7 +97,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         toast.success('Artwork analyzed successfully!');
       } else {
         const img = new Image();
-        img.src = content; // content is data URL for rasters
+        img.src = content;
         await img.decode();
         const aspectRatio = img.height / img.width;
         const metrics: ArtworkMetrics = {
@@ -109,7 +112,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       }
     } catch (error) {
       toast.error('Failed to analyze artwork', { description: (error as Error).message });
-      setState(s => ({ ...s, file: undefined, fileContent: undefined }));
+      setState(s => ({ ...s, file: undefined, fileContent: undefined, artworkMetrics: { widthMm: 100, heightMm: 100, cutLengthMm: 0, engraveAreaSqMm: 0, pathComplexity: 0 } }));
     } finally {
       setIsLoadingMetrics(false);
     }
@@ -122,7 +125,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       return getKerfAdjustedMetrics(state.artworkMetrics, state.material.kerfMm);
     }
     return state.artworkMetrics;
-  }, [showKerf, state.artworkMetrics, state.material]);
+  }, [showKerf, state.artworkMetrics?.widthMm, state.material?.kerfMm]);
   useEffect(() => {
     if (state.artworkMetrics && state.material && state.thicknessMm) {
       const issues = checkManufacturability(state.artworkMetrics, state.material, state.thicknessMm);
@@ -209,7 +212,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
   return (
     <>
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8"
+        className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 lg:gap-8"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -247,7 +250,9 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
           <motion.div layout variants={itemVariants}>
             <Card className={step === 2 ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}>
               <CardHeader><CardTitle>3. Upload Artwork</CardTitle></CardHeader>
-              <CardContent><UploadDropzone onFileAccepted={handleFileAccepted} /></CardContent>
+              <CardContent>
+                {isLoadingMetrics ? <Skeleton className="h-64 w-full" /> : <UploadDropzone onFileAccepted={handleFileAccepted} />}
+              </CardContent>
             </Card>
           </motion.div>
           {state.fileContent && (
@@ -271,37 +276,38 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* Cross-browser: Tested Safari 17+ for SVG rendering. Mix-blend-mode has good support. */}
-                  {isLoadingMetrics ? (
-                    <Skeleton className="aspect-video w-full" />
-                  ) : (
-                    <AnimatePresence>
-                      <motion.div
-                        key={state.material?.textureUrl || 'default'}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.5 }}
-                        className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 relative overflow-auto max-h-[500px] bg-cover bg-center"
-                        style={{ backgroundImage: state.material?.textureUrl ? `url(${state.material.textureUrl})` : 'none' }}
-                      >
-                        {processedPreviewData.type === 'raster' && <img src={processedPreviewData.src} alt="Artwork preview" className="max-h-full max-w-full object-contain" loading="lazy" />}
-                        {processedPreviewData.type === 'engrave' && <img src={processedPreviewData.src} alt="Engrave preview" className="max-h-full max-w-full object-contain mix-blend-multiply opacity-70" loading="lazy" />}
-                        {processedPreviewData.type === 'cut' && <img src={processedPreviewData.src} alt="Cut preview" className="max-h-full max-w-full object-contain" loading="lazy" />}
-                        {processedPreviewData.type === 'both' && (
-                          <motion.div className="w-full h-full" variants={containerVariants} initial="hidden" animate="visible">
-                            <motion.img key="engrave" src={processedPreviewData.engraveSrc} alt="Engrave layer" variants={itemVariants} className="absolute inset-0 w-full h-full object-contain p-4 mix-blend-multiply opacity-70 z-0" loading="lazy" />
-                            <motion.img key="cut" src={processedPreviewData.cutSrc} alt="Cut layer" variants={itemVariants} transition={{delay: 0.2}} className="absolute inset-0 w-full h-full object-contain p-4 z-10" loading="lazy" />
-                          </motion.div>
-                        )}
-                         {showKerf && state.material && (state.jobType === 'cut' || state.jobType === 'both') && (
-                          <div
-                            className="absolute inset-0 pointer-events-none border-red-500/50 border-dashed z-20"
-                            style={{ borderWidth: `${state.material.kerfMm / 2}px` }}
-                          />
-                        )}
-                      </motion.div>
-                    </AnimatePresence>
-                  )}
+                  <ErrorBoundary FallbackComponent={ErrorFallback}>
+                    {isLoadingMetrics ? (
+                      <Skeleton className="aspect-video w-full" />
+                    ) : (
+                      <AnimatePresence>
+                        <motion.div
+                          key={state.material?.textureUrl || 'default'}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.5 }}
+                          className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 relative overflow-auto max-h-[500px] bg-cover bg-center"
+                          style={{ backgroundImage: state.material?.textureUrl ? `url(${state.material.textureUrl})` : 'none' }}
+                        >
+                          {processedPreviewData.type === 'raster' && <img src={processedPreviewData.src} alt="Artwork preview" className="max-h-full max-w-full object-contain" loading="lazy" />}
+                          {processedPreviewData.type === 'engrave' && <img src={processedPreviewData.src} alt="Engrave preview" className="max-h-full max-w-full object-contain mix-blend-multiply opacity-70" loading="lazy" />}
+                          {processedPreviewData.type === 'cut' && <img src={processedPreviewData.src} alt="Cut preview" className="max-h-full max-w-full object-contain" loading="lazy" />}
+                          {processedPreviewData.type === 'both' && (
+                            <motion.div className="w-full h-full" variants={containerVariants} initial="hidden" animate="visible">
+                              <motion.img key="engrave" src={processedPreviewData.engraveSrc} alt="Engrave layer" variants={itemVariants} className="absolute inset-0 w-full h-full object-contain p-4 mix-blend-multiply opacity-70 z-0" loading="lazy" />
+                              <motion.img key="cut" src={processedPreviewData.cutSrc} alt="Cut layer" variants={itemVariants} transition={{delay: 0.2}} className="absolute inset-0 w-full h-full object-contain p-4 z-10" loading="lazy" />
+                            </motion.div>
+                          )}
+                           {showKerf && state.material && (state.jobType === 'cut' || state.jobType === 'both') && (
+                            <div
+                              className="absolute inset-0 pointer-events-none border-red-500/50 border-dashed z-20"
+                              style={{ borderWidth: `${state.material.kerfMm / 2}px` }}
+                            />
+                          )}
+                        </motion.div>
+                      </AnimatePresence>
+                    )}
+                  </ErrorBoundary>
                 </CardContent>
               </Card>
               {manufacturabilityIssues.length > 0 && (
@@ -318,16 +324,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         </div>
         <div className="lg:col-span-3">
           <motion.div layout variants={itemVariants} className="sticky top-24">
-            {pricePackages ? (
-              <PriceCard packages={pricePackages} quoteId={state.savedQuoteId} onSaveQuote={handleSaveQuote} isSaving={isSaving} isEditMode={editMode} />
-            ) : (
-              <Card className="shadow-soft">
-                <CardHeader><CardTitle>Your Quote</CardTitle></CardHeader>
-                <CardContent className="text-center text-muted-foreground h-64 flex items-center justify-center">
-                  <p>Complete the steps to see your instant price.</p>
-                </CardContent>
-              </Card>
-            )}
+            <PriceCard packages={pricePackages} quoteId={state.savedQuoteId} onSaveQuote={handleSaveQuote} isSaving={isSaving} isEditMode={editMode} />
           </motion.div>
         </div>
       </motion.div>

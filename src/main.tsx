@@ -4,7 +4,7 @@
  * Wraps the application in QueryClientProvider to enable @tanstack/react-query.
  * Defines all application routes using React Router v6.
  */
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -31,9 +31,14 @@ const rootEl = document.getElementById("root");
 if (!rootEl) {
   throw new Error("Root element not found. Make sure there is an element with id='root' in index.html");
 }
-ReactDOM.createRoot(rootEl).render(
-  <React.StrictMode>
-    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()}>
+const App = () => {
+  useEffect(() => {
+    if (document.readyState === 'complete') {
+      console.log('Hydration complete');
+    }
+  }, []);
+  return (
+    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()} resetKeys={[Date.now()]}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Suspense fallback={<FullPageLoader />}>
@@ -55,5 +60,10 @@ ReactDOM.createRoot(rootEl).render(
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>
+  );
+};
+ReactDOM.createRoot(rootEl).render(
+  <React.StrictMode>
+    <App />
   </React.StrictMode>
 );
