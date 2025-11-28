@@ -130,7 +130,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/admin/orders', async (c) => {
     await OrderEntity.ensureSeed(c.env);
     const page = await OrderEntity.list(c.env);
-    const sorted = page.items.sort((a, b) => b.submittedAt - a.createdAt);
+    const sorted = page.items.sort((a, b) => b.submittedAt - a.submittedAt);
     return ok(c, sorted);
   });
   app.patch('/api/orders/:id', async (c) => {
