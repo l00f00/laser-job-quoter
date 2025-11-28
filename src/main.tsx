@@ -11,7 +11,10 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 import '@/index.css'
 import { HomePage } from '@/pages/HomePage'
-import { QuotePage } from '@/pages/QuotePage'; // Import the new QuotePage
+import { QuotePage } from '@/pages/QuotePage';
+import { QuotesListPage } from '@/pages/QuotesListPage'; // Import the new QuotesListPage
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+const queryClient = new QueryClient();
 const router = createBrowserRouter([
   {
     path: "/",
@@ -23,12 +26,19 @@ const router = createBrowserRouter([
     element: <QuotePage />,
     errorElement: <RouteErrorBoundary />,
   },
+  {
+    path: "/quotes",
+    element: <QuotesListPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
 ]);
 // Do not touch this code
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <RouterProvider router={router} />
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
     </ErrorBoundary>
   </StrictMode>,
 )

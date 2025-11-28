@@ -4,6 +4,13 @@ export interface ApiResponse<T = unknown> {
   error?: string;
 }
 // --- LuxQuote Types ---
+export interface PricePackage {
+  name: 'Economy' | 'Standard' | 'Express';
+  leadTime: string;
+  machineTimeMultiplier: number;
+  total: number;
+  breakdown: Record<string, number>;
+}
 export interface Material {
   id: string;
   name: string;
@@ -24,9 +31,14 @@ export interface Quote {
   jobType: 'cut' | 'engrave' | 'both';
   physicalWidthMm: number;
   physicalHeightMm: number;
-  estimate: Record<string, unknown>; // Store the calculated estimate
+  estimate?: PricePackage | Record<string, unknown>; // Store the calculated estimate
   thumbnail?: string; // small base64 preview
   status: 'draft' | 'requested' | 'in_progress' | 'complete';
+}
+export interface LoginUser {
+  id: string;
+  email: string;
+  name: string;
 }
 // --- Template Demo Types (can be removed later) ---
 export interface User {

@@ -5,19 +5,34 @@ import { ok, bad, notFound, isStr } from './core-utils';
 import { MOCK_MATERIALS } from "@shared/mock-data";
 import type { Quote } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
-  app.get('/api/test', (c) => c.json({ success: true, data: { name: 'CF Workers Demo' }}));
   // --- LuxQuote Routes ---
   app.get('/api/materials', (c) => {
-    // For phase 1, we return the mock data directly.
-    // In a real app, this might come from a DB or KV.
     return ok(c, MOCK_MATERIALS);
   });
   app.get('/api/quotes', async (c) => {
     await QuoteEntity.ensureSeed(c.env);
     const page = await QuoteEntity.list(c.env);
-    return ok(c, page.items);
+    // Return newest first
+    const sorted = page.items.sort((a, b) => b.createdAt - a.createdAt);
+    return ok(c, sorted);
+  });
+  app.get('/api/quotes/:id', async (c) => {
+    const id = c.req.param('id');
+    const quoteEntity = new QuoteEntity(c.env, id);
+    if (!(await quoteEntity.exists())) {
+      return notFound(c, 'Quote not found');
+    }
+    const quote = await quoteEntity.getState();
+    return ok(c, quote);
   });
   app.post('/api/quotes', async (c) => {
+    // Mock auth check - in a real app, this would be a proper JWT/session validation
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer mock_token')) {
+      // For this phase, we'll allow it but log a warning. In production, this would be a 401.
+      console.warn('Auth header missing or invalid for POST /api/quotes');
+      // return c.json({ success: false, error: 'Unauthorized' }, 401);
+    }
     const body = (await c.req.json()) as Partial<Quote>;
     if (!body.materialId || !body.estimate) {
       return bad(c, 'Missing required quote data');
@@ -39,12 +54,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     return ok(c, created);
   });
   // --- Template Demo Routes (can be removed later) ---
+  app.get('/api/test', (c) => c.json({ success: true, data: { name: 'CF Workers Demo' }}));
   // USERS
   app.get('/api/users', async (c) => {
     await UserEntity.ensureSeed(c.env);
-    const cq = c.req.query('cursor');
-    const lq = c.req.query('limit');
-    const page = await UserEntity.list(c.env, cq ?? null, lq ? Math.max(1, (Number(lq) | 0)) : undefined);
+    const page = await UserEntity.list(c.env);
     return ok(c, page);
   });
   app.post('/api/users', async (c) => {
@@ -55,9 +69,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // CHATS
   app.get('/api/chats', async (c) => {
     await ChatBoardEntity.ensureSeed(c.env);
-    const cq = c.req.query('cursor');
-    const lq = c.req.query('limit');
-    const page = await ChatBoardEntity.list(c.env, cq ?? null, lq ? Math.max(1, (Number(lq) | 0)) : undefined);
+    const page = await ChatBoardEntity.list(c.env);
     return ok(c, page);
   });
   app.post('/api/chats', async (c) => {
@@ -79,21 +91,5 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const chat = new ChatBoardEntity(c.env, chatId);
     if (!await chat.exists()) return notFound(c, 'chat not found');
     return ok(c, await chat.sendMessage(userId, text.trim()));
-  });
-  // DELETE: Users
-  app.delete('/api/users/:id', async (c) => ok(c, { id: c.req.param('id'), deleted: await UserEntity.delete(c.env, c.req.param('id')) }));
-  app.post('/api/users/deleteMany', async (c) => {
-    const { ids } = (await c.req.json()) as { ids?: string[] };
-    const list = ids?.filter(isStr) ?? [];
-    if (list.length === 0) return bad(c, 'ids required');
-    return ok(c, { deletedCount: await UserEntity.deleteMany(c.env, list), ids: list });
-  });
-  // DELETE: Chats
-  app.delete('/api/chats/:id', async (c) => ok(c, { id: c.req.param('id'), deleted: await ChatBoardEntity.delete(c.env, c.req.param('id')) }));
-  app.post('/api/chats/deleteMany', async (c) => {
-    const { ids } = (await c.req.json()) as { ids?: string[] };
-    const list = ids?.filter(isStr) ?? [];
-    if (list.length === 0) return bad(c, 'ids required');
-    return ok(c, { deletedCount: await ChatBoardEntity.deleteMany(c.env, list), ids: list });
   });
 }
