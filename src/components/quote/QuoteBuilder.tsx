@@ -14,12 +14,17 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { calculateEstimate, getSvgMetrics, checkManufacturability, ArtworkMetrics, processSvgForCut, createMaskedTextureSvg } from '@/lib/quote-utils';
 import type { Material, Quote, PricePackage } from '@shared/types';
-import { Scissors, Brush, Layers, AlertTriangle } from 'lucide-react';
+import { Scissors, Brush, Layers, AlertTriangle, Settings, Ruler, Download, Palette } from 'lucide-react';
 import { mockAuth } from '@/lib/auth-utils';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { useQuery } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { HelpButton } from '../HelpButton';
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import html2canvas from 'html2canvas';
+import { saveAs } from 'file-saver';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 type QuoteState = {
   file?: File;
   fileContent?: string;
@@ -31,10 +36,12 @@ type QuoteState = {
   savedQuoteId?: string;
   scalePercent: number;
 };
-interface QuoteBuilderProps {
-  editMode?: boolean;
-  initialQuote?: Quote;
-}
+const blendModes: Record<string, string> = {
+  'normal': '',
+  'light-etch': 'opacity-75 mix-blend-multiply',
+  'deep-engrave': 'opacity-100 mix-blend-multiply contrast-125',
+  'color-burn': 'mix-blend-color-burn',
+};
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
 const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
 export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderProps) {
@@ -43,10 +50,19 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
   const [isSaving, setIsSaving] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [manufacturabilityIssues, setManufacturabilityIssues] = useState<string[]>([]);
-  const [showKerf, setShowKerf] = useState(false);
   const [redLines, setRedLines] = useState(false);
+  const [advancedEditorOpen, setAdvancedEditorOpen] = useState(false);
+  const [maskingMode, setMaskingMode] = useState(false);
+  const [blendMode, setBlendMode] = useState('normal');
+  const [showRuler, setShowRuler] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
   const { data: materials } = useQuery<Material[]>({ queryKey: ['materials'], queryFn: () => api('/api/materials') });
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    };
+  }, []);
   useEffect(() => {
     if (editMode && initialQuote && materials) {
       const material = materials.find(m => m.id === initialQuote.materialId);
@@ -56,7 +72,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       const metrics = {
         widthMm: initialQuote.physicalWidthMm,
         heightMm: initialQuote.physicalHeightMm,
-        cutLengthMm: 0, engraveAreaSqMm: 0, pathComplexity: 0,
+        cutLengthMm: 0, engraveAreaSqMm: 0, pathComplexity: 0, aspectRatio: 1,
       };
       setState(s => ({
         ...s,
@@ -89,6 +105,15 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
         toast.success('Artwork analyzed successfully!');
       } else {
         // Raster logic
+        const metrics = {
+            widthMm: physicalWidthMm,
+            heightMm: physicalWidthMm, // Assuming square for now, needs aspect ratio from image
+            cutLengthMm: 0,
+            engraveAreaSqMm: physicalWidthMm * physicalWidthMm,
+            pathComplexity: 1,
+            aspectRatio: 1,
+        }
+        setState(s => ({ ...s, artworkMetrics: metrics, initialMetrics: metrics }));
       }
     } catch (error) {
       toast.error('Failed to analyze artwork', { description: (error as Error).message });
@@ -172,18 +197,25 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
     }
   };
   const processedPreviewData = useMemo(() => {
-    if (!state.fileContent || !state.artworkMetrics) return { type: 'none' };
+    if (!state.fileContent || !state.artworkMetrics) return { type: 'none', src: '' };
     const toBase64 = (svgString: string) => `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
     if (state.jobType === 'cut' && state.material?.textureUrl) {
-      const maskedSvg = createMaskedTextureSvg(state.fileContent, state.material.textureUrl, state.artworkMetrics.widthMm, state.artworkMetrics.heightMm, redLines);
+      const maskedSvg = createMaskedTextureSvg(state.fileContent, state.material.textureUrl, state.artworkMetrics.widthMm, state.artworkMetrics.heightMm, redLines, maskingMode);
       return { type: 'masked-cut', src: toBase64(maskedSvg) };
     }
     if (state.jobType === 'cut') {
       return { type: 'cut', src: toBase64(processSvgForCut(state.fileContent, redLines ? 'red' : 'black')) };
     }
-    // Other job types...
     return { type: 'engrave', src: toBase64(state.fileContent) };
-  }, [state.fileContent, state.artworkMetrics, state.jobType, state.material, redLines]);
+  }, [state.fileContent, state.artworkMetrics, state.jobType, state.material, redLines, maskingMode]);
+  const handleExport = () => {
+    if (previewRef.current) {
+      html2canvas(previewRef.current, { backgroundColor: null }).then(canvas => {
+        saveAs(canvas.toDataURL('image/png'), 'luxquote-preview.png');
+      });
+    }
+  };
+  const previewKey = `${state.scalePercent}-${state.jobType}-${redLines}-${maskingMode}-${blendMode}`;
   return (
     <>
       <motion.div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 lg:gap-8" variants={containerVariants} initial="hidden" animate="visible">
@@ -209,28 +241,49 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
           {state.fileContent && (
             <motion.div layout variants={itemVariants} className="space-y-4">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
-                  <CardTitle>Artwork Preview</CardTitle>
-                  <div className="flex items-center space-x-2">
-                    <Label className="text-sm">Scale</Label>
-                    <Slider value={[state.scalePercent]} onValueChange={handleScaleChange} min={50} max={200} step={10} className="w-24" />
-                    <span className="text-sm font-mono w-12 text-right">{state.scalePercent}%</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Label htmlFor="red-lines">Red Lines</Label>
-                    <Switch id="red-lines" checked={redLines} onCheckedChange={setRedLines} />
-                  </div>
+                <CardHeader>
+                  <CardTitle>Simple Preview</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">For advanced editing, use the full editor tools below.</p>
                 </CardHeader>
                 <CardContent>
                   <ErrorBoundary>
                     {isLoadingMetrics ? <Skeleton className="aspect-video w-full" /> : (
-                      <div className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 overflow-auto max-h-[500px]">
-                        <img src={processedPreviewData.src} alt="Preview" className="max-h-full max-w-full object-contain" />
+                      <div ref={previewRef} className="aspect-video w-full rounded-lg border bg-muted/30 flex items-center justify-center p-4 overflow-hidden relative">
+                        <TransformWrapper minScale={1} maxScale={4} disabled={!advancedEditorOpen}>
+                          <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full">
+                            <img key={previewKey} src={processedPreviewData.src} alt="Preview" className={`max-h-full max-w-full object-contain transition-all duration-300 ${blendModes[blendMode]}`} />
+                          </TransformComponent>
+                        </TransformWrapper>
+                        {showRuler && state.artworkMetrics && (
+                           <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${state.artworkMetrics.widthMm} ${state.artworkMetrics.heightMm}`} preserveAspectRatio="none">
+                                <line x1="0" y1="0" x2={state.artworkMetrics.widthMm} y2="0" stroke="rgba(128,128,128,0.5)" strokeWidth="0.5" strokeDasharray="2 2" />
+                                <line x1="0" y1="0" x2="0" y2={state.artworkMetrics.heightMm} stroke="rgba(128,128,128,0.5)" strokeWidth="0.5" strokeDasharray="2 2" />
+                                <text x="5" y="10" fontSize="8" fill="gray">{state.artworkMetrics.heightMm.toFixed(1)}mm</text>
+                                <text x={state.artworkMetrics.widthMm - 25} y={state.artworkMetrics.heightMm - 5} fontSize="8" fill="gray">{state.artworkMetrics.widthMm.toFixed(1)}mm</text>
+                           </svg>
+                        )}
                       </div>
                     )}
                   </ErrorBoundary>
                 </CardContent>
               </Card>
+              <Button variant="outline" onClick={() => setAdvancedEditorOpen(!advancedEditorOpen)} className="w-full"><Settings className="mr-2 h-4 w-4" /> {advancedEditorOpen ? 'Hide' : 'Show'} Advanced Editor</Button>
+              <AnimatePresence>
+                {advancedEditorOpen && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                    <Card className="mt-4"><CardHeader><CardTitle>Advanced Editor Tools</CardTitle></CardHeader>
+                      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2"><Label>Scale</Label><Slider value={[state.scalePercent]} onValueChange={handleScaleChange} min={50} max={200} step={10} /><span className="text-sm font-mono w-12 text-right">{state.scalePercent}%</span></div>
+                        <div className="space-y-2"><Label>Blend Mode</Label><Select value={blendMode} onValueChange={setBlendMode}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="normal">Normal</SelectItem><SelectItem value="light-etch">Light Etch</SelectItem><SelectItem value="deep-engrave">Deep Engrave</SelectItem><SelectItem value="color-burn">Color Burn</SelectItem></SelectContent></Select></div>
+                        <div className="flex items-center space-x-2"><Switch id="red-lines" checked={redLines} onCheckedChange={setRedLines} /><Label htmlFor="red-lines">Show Cut Lines (Red)</Label></div>
+                        <div className="flex items-center space-x-2"><Switch id="masking-mode" checked={maskingMode} onCheckedChange={setMaskingMode} /><Label htmlFor="masking-mode">Show Cut Shape Only</Label></div>
+                        <div className="flex items-center space-x-2"><Switch id="show-ruler" checked={showRuler} onCheckedChange={setShowRuler} /><Label htmlFor="show-ruler">Show Ruler & Dimensions</Label></div>
+                        <Button onClick={handleExport} className="md:col-span-2"><Download className="mr-2 h-4 w-4" /> Export as PNG</Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               {manufacturabilityIssues.length > 0 && <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertTitle>Manufacturability Warning</AlertTitle><AlertDescription><ul>{manufacturabilityIssues.map((issue, i) => <li key={i}>- {issue}</li>)}</ul></AlertDescription></Alert>}
             </motion.div>
           )}

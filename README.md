@@ -14,7 +14,7 @@ LuxQuote is a visually-rich, polished single-page web application for creating i
 ## Technology Stack
 - **Frontend**: React 18, TypeScript, Tailwind CSS v3, shadcn/ui, Framer Motion, Zustand, React Router, Sonner, Recharts.
 - **Backend**: Cloudflare Workers, Hono, Durable Objects, Cloudflare D1 (hybrid model).
-- **Utilities**: Lucide React, @tanstack/react-query, Zod, Immer.
+- **Utilities**: Lucide React, @tanstack/react-query, Zod, Immer, `react-zoom-pan-pinch`, `html2canvas`.
 - **Build & Dev**: Vite, Bun, Wrangler.
 ## Quick Start
 ### Prerequisites
@@ -29,6 +29,15 @@ LuxQuote is a visually-rich, polished single-page web application for creating i
 1. Start the frontend dev server: `bun run dev`
 2. In a separate terminal, start the Cloudflare Worker: `wrangler dev`
 3. Open `http://localhost:3000` in your browser.
+## Enhanced Preview & Editor
+- **Simple Preview**: Basic artwork view with a scale slider that smoothly recalculates dimensions and price while preserving aspect ratio. Includes toggles for job type masking (e.g., showing a material texture for cut jobs).
+- **Advanced Editor**: A collapsible section with powerful tools:
+    - **Zoom & Pan**: Zoom from 1x to 4x using your mouse wheel or pinch gestures on mobile. Drag to pan the artwork.
+    - **Measurement Ruler**: Overlay dimensions and kerf dashes to inspect your design.
+    - **Blend Picker**: Simulate different engraving styles like 'light-etch' or 'deep-engrave' using CSS filters.
+    - **PNG Export**: Download a high-resolution PNG of your current preview.
+- **Cut Masking**: A "Show Cut Shape Only" toggle precisely clips the material texture to your artwork's bounds, hiding the exterior material.
+- **Mobile Ready**: All editor tools, including pinch-to-zoom, are fully responsive and work on touch devices.
 ## Authentication Flow
 - **Role-Based Redirects**: After logging in, admins are redirected to `/admin`, and users are redirected to `/quotes`.
 - **Pre-fill Credentials**: Navigating to `/login?role=admin` will pre-fill the login form with admin credentials for easy testing.
@@ -36,18 +45,20 @@ LuxQuote is a visually-rich, polished single-page web application for creating i
 - **Logout**: A logout button is available in the sidebar for authenticated users, which clears the session and redirects to the homepage.
 ## Testing the Application (End-to-End Flow)
 1.  **Login as User**: Use `demo@luxquote.com` / `demo123`. You will be redirected to `/quotes`.
-2.  **Create a Quote**: Go to `/quote`, upload a design, select a material, and click "Save Quote".
-3.  **View Saved Quotes**: Navigate to `/quotes` to see your saved project.
-4.  **Edit a Quote**: Click "Edit" on the quote card, make a change, and click "Update Quote".
-5.  **Checkout**: From the quote builder, click "Pay with Stripe" to simulate the checkout flow. You will be redirected to a mock success page.
-6.  **Logout**: Click the "Logout" button in the sidebar. You will be redirected to the homepage.
-7.  **Login as Admin**: Log back in with `admin@luxquote.com` / `admin123`. You will be redirected to `/admin`.
-8.  **Admin View**: Go to `/admin/orders`.
+2.  **Create a Quote**: Go to `/quote`, upload a design, and select a material.
+3.  **Advanced Editor**: Toggle the "Advanced Editor" below the preview. Zoom and pan the artwork, apply a 'light-etch' blend mode, turn on the ruler, and export a PNG of the preview.
+4.  **Save Quote**: Click "Save Quote".
+5.  **View Saved Quotes**: Navigate to `/quotes` to see your saved project.
+6.  **Edit a Quote**: Click "Edit" on the quote card, make a change, and click "Update Quote".
+7.  **Checkout**: From the quote builder, click "Pay with Stripe" to simulate the checkout flow. You will be redirected to a mock success page.
+8.  **Logout**: Click the "Logout" button in the sidebar. You will be redirected to the homepage.
+9.  **Login as Admin**: Log back in with `admin@luxquote.com` / `admin123`. You will be redirected to `/admin`.
+10. **Admin View**: Go to `/admin/orders`.
     - In the **Orders** tab, find the order you created and change its status from `pending` to `shipped`.
     - Download the SVG and Specs (CSV) files for an order.
     - In the **Analytics** tab (`/admin`), observe the updated revenue and material stats.
     - In the **Payments** tab (`/admin`), view the payment status and link to the mock Stripe session.
-9.  **Verify No Type Errors**: Run `bun run build && tsc --noEmit` to confirm the project is type-safe.
+11. **Verify No Type Errors**: Run `bun run build && tsc --noEmit` to confirm the project is type-safe.
 ## Admin Features
 ### Credentials
 - **Admin**: `admin@luxquote.com` / `admin123`
