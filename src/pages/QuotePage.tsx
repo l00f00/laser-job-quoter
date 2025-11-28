@@ -40,7 +40,7 @@ export function QuotePage() {
           )}
         </div>
       </div>
-      <HelpButton />
+
       <Toaster richColors closeButton />
     </AppLayout>
   );

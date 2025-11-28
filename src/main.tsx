@@ -4,7 +4,8 @@
  * Wraps the application in QueryClientProvider to enable @tanstack/react-query.
  * Defines all application routes using React Router v6.
  */
-import React, { Suspense, lazy, useEffect, ComponentType } from "react";
+import React, { Suspense, lazy, ComponentType } from "react";
+import { HelpButton } from "@/components/HelpButton";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -42,11 +43,7 @@ if (!rootEl) {
   throw new Error("Root element not found. Make sure there is an element with id='root' in index.html");
 }
 const App = () => {
-  useEffect(() => {
-    if (document.readyState === 'complete') {
-      console.log('Hydration complete');
-    }
-  }, []);
+
   return (
     <React.StrictMode>
       <ErrorBoundary>
@@ -76,6 +73,7 @@ const App = () => {
                 {/* Fallback: reuse HomePage for unmatched routes */}
                 <Route path="*" element={<HomePage />} />
               </Routes>
+              <HelpButton />
             </Suspense>
           </BrowserRouter>
         </QueryClientProvider>
