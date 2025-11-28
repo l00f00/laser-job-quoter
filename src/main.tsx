@@ -8,7 +8,7 @@ import React, { Suspense, lazy, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ErrorBoundary } from "react-error-boundary";
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 /**
  * Import application pages and common components.
  */
@@ -18,7 +18,7 @@ import LoginPage from "@/pages/LoginPage";
 import { QuotePage } from "@/pages/QuotePage";
 import { AdminPage } from "@/pages/AdminPage";
 import FullPageLoader from "@/components/common/FullPageLoader";
-import ErrorFallback from "@/components/common/ErrorFallback";
+
 /**
  * Import global styles.
  */
@@ -38,7 +38,7 @@ const App = () => {
     }
   }, []);
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()} resetKeys={[Date.now()]}>
+      <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Suspense fallback={<FullPageLoader />}>
@@ -62,6 +62,7 @@ const App = () => {
     </ErrorBoundary>
   );
 };
+export default App;
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
     <App />

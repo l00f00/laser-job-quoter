@@ -18,8 +18,8 @@ import { Scissors, Brush, Layers, AlertTriangle } from 'lucide-react';
 import { mockAuth } from '@/lib/auth-utils';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { useQuery } from '@tanstack/react-query';
-import { ErrorBoundary } from 'react-error-boundary';
-import ErrorFallback from '@/components/common/ErrorFallback';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
 type QuoteState = {
   file?: File;
   fileContent?: string;
@@ -125,7 +125,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
       return getKerfAdjustedMetrics(state.artworkMetrics, state.material.kerfMm);
     }
     return state.artworkMetrics;
-  }, [showKerf, state.artworkMetrics?.widthMm, state.material?.kerfMm]);
+  }, [showKerf, state.artworkMetrics, state.material]);
   useEffect(() => {
     if (state.artworkMetrics && state.material && state.thicknessMm) {
       const issues = checkManufacturability(state.artworkMetrics, state.material, state.thicknessMm);
@@ -276,7 +276,7 @@ export function QuoteBuilder({ editMode = false, initialQuote }: QuoteBuilderPro
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <ErrorBoundary>
                     {isLoadingMetrics ? (
                       <Skeleton className="aspect-video w-full" />
                     ) : (
