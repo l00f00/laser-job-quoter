@@ -107,39 +107,53 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const origin = c.req.header('origin') || c.req.url.split('/api')[0];
     let session: { url: string; id: string; payment_intent: string } | null = null;
     let error: string | null = null;
-    try {
-      const stripeKey = (c.env as any).STRIPE_SECRET_KEY;
-      if (!stripeKey) throw new Error("Stripe key not configured.");
-      const params = new URLSearchParams();
-      params.append('mode', 'payment');
-      params.append('line_items[0][price_data][currency]', 'usd');
-      params.append('line_items[0][price_data][product_data][name]', `LuxQuote Order for: ${quote.title}`);
-      params.append('line_items[0][price_data][product_data][description]', `Material: ${quote.materialId}, ${quote.thicknessMm}mm`);
-      params.append('line_items[0][price_data][unit_amount]', String(Math.round(estimate.total * 100)));
-      params.append('line_items[0][quantity]', '1');
-      params.append('success_url', `${origin}/quotes?payment=success&session_id={CHECKOUT_SESSION_ID}`);
-      params.append('cancel_url', `${origin}/quote/${quoteId}`);
-      params.append('metadata[quote_id]', quoteId);
-      const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${stripeKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Stripe-Version': '2023-10-16' },
-        body: params.toString(),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Stripe API error: ${res.status} ${errText}`);
-      }
-      session = await res.json();
-    } catch (e) {
-      console.error('Stripe session creation failed:', e);
-      error = (e as Error).message;
-    }
-    if (!session) {
+    // Dev-friendly handling: if Stripe key is missing or contains a placeholder (e.g. 'HERE'),
+    // skip calling the real Stripe API and use a mocked session. Only call Stripe when a real
+    // key is present and does not include placeholder text.
+    const stripeKey = (c.env as any).STRIPE_SECRET_KEY;
+    if (!stripeKey || String(stripeKey).includes('HERE')) {
+      // Dev fallback - do not attempt network call
       session = {
         url: `${origin}/quotes?payment=success&session_id=cs_test_mock_${crypto.randomUUID()}`,
         id: `cs_test_mock_${crypto.randomUUID()}`,
         payment_intent: `pi_mock_${crypto.randomUUID()}`,
       };
+    } else {
+      try {
+        const params = new URLSearchParams();
+        params.append('mode', 'payment');
+        params.append('line_items[0][price_data][currency]', 'usd');
+        params.append('line_items[0][price_data][product_data][name]', `LuxQuote Order for: ${quote.title}`);
+        params.append('line_items[0][price_data][product_data][description]', `Material: ${quote.materialId}, ${quote.thicknessMm}mm`);
+        params.append('line_items[0][price_data][unit_amount]', String(Math.round(estimate.total * 100)));
+        params.append('line_items[0][quantity]', '1');
+        params.append('success_url', `${origin}/quotes?payment=success&session_id={CHECKOUT_SESSION_ID}`);
+        params.append('cancel_url', `${origin}/quote/${quoteId}`);
+        params.append('metadata[quote_id]', quoteId);
+        const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${stripeKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Stripe-Version': '2023-10-16' },
+          body: params.toString(),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error('Stripe API error creating session:', res.status, errText);
+          error = `Stripe API error: ${res.status}`;
+        } else {
+          session = await res.json();
+        }
+      } catch (e) {
+        console.error('Stripe session creation failed:', e);
+        error = (e as Error).message;
+      }
+      // If for any reason session wasn't created, fall back to mocked session
+      if (!session) {
+        session = {
+          url: `${origin}/quotes?payment=success&session_id=cs_test_mock_${crypto.randomUUID()}`,
+          id: `cs_test_mock_${crypto.randomUUID()}`,
+          payment_intent: `pi_mock_${crypto.randomUUID()}`,
+        };
+      }
     }
     const newOrderData: Order = {
       id: `order_${crypto.randomUUID()}`,

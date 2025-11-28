@@ -15,34 +15,34 @@ import {
   SidebarMenuAction,
   SidebarMenuBadge,
 } from "@/components/ui/sidebar";
-import { Link, useLocation } from "react-router-dom";
+
 export function AppSidebar(): JSX.Element {
-  const location = useLocation();
-  const isActive = (path: string) => location.pathname === path;
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const isActive = (p: string) => currentPath === p;
   return (
     <Sidebar>
       <SidebarHeader>
-        <Link to="/" className="flex items-center gap-2 px-2 py-1">
+        <a href="/" className="flex items-center gap-2 px-2 py-1">
           <div className="h-6 w-6 rounded-md bg-gradient-to-br from-[rgb(245,128,37)] to-[rgb(230,90,27)]" />
           <span className="text-sm font-medium">LuxQuote</span>
-        </Link>
+        </a>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isActive('/')}>
-                <Link to="/"><Home /> <span>Home</span></Link>
+                <a href="/"><Home /> <span>Home</span></a>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isActive('/quote')}>
-                <Link to="/quote"><Layers /> <span>New Quote</span></Link>
+                <a href="/quote"><Layers /> <span>New Quote</span></a>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isActive('/quotes')}>
-                <Link to="/quotes"><List /> <span>My Quotes</span></Link>
+                <a href="/quotes"><List /> <span>My Quotes</span></a>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
